@@ -149,6 +149,12 @@ namespace WhatDoINeed
             }
             int imgcnt = 0;
             string l = "";
+
+            if (GUI.Button(new Rect(helpWindow.width - 24 - 2, 2, 24, 24), "X"))
+            {
+                Destroy(this);
+            }
+
             scrollPos = GUILayout.BeginScrollView(scrollPos, Settings.Instance.scrollViewStyle);
 
             foreach (var line in lines)
