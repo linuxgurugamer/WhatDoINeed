@@ -88,6 +88,15 @@ namespace WhatDoINeed
             }
         }
 
+        void OnDestroy()
+        {
+            GameEvents.onHideUI.Remove(OnHideUI);
+            GameEvents.onShowUI.Remove(OnShowUI);
+            GameEvents.onEditorPartDeleted.Remove(onEditorPartDeleted);
+            GameEvents.onEditorPartPlaced.Remove(onEditorPartPlaced);
+            GameEvents.onEditorPartPicked.Remove(onEditorPartPicked);
+
+        }
         void onEditorPartDeleted(Part p)
         {
             //Log.Info("onEditorPartDeleted");
@@ -140,7 +149,7 @@ namespace WhatDoINeed
         /// </summary>
         void SetUpExperimentParts()
         {
-            //Log.Info("SetUpExperimentParts");
+            Log.Info("SetUpExperimentParts");
             // First get list of all experiments in the active contracts
 
             ConfigNode configNode = new ConfigNode();
@@ -187,6 +196,11 @@ namespace WhatDoINeed
 
                                                 }
                                             }
+                                            if (param_name == "SCANsatCoverage")
+                                            {
+                                                param.TryGetValue("scanName", ref experiment);  // Now check for Station Science experiments
+
+                                            }
 
                                         }
                                         if (experiment != null)
@@ -194,7 +208,9 @@ namespace WhatDoINeed
                                             CEP_Key_Tuple ckt = new CEP_Key_Tuple(experiment, contractGuid);
                                             if (!experimentParts.ContainsKey(ckt.Key()))
                                             {
-                                                //Log.Info("Contract guid: " + contractGuid + ", experiment: " + experiment + ", key: " + ckt.Key());
+#if DEBUG
+                                                Log.Info("Contract guid: " + contractGuid + ", experiment: " + experiment + ", key: " + ckt.Key());
+#endif
                                                 experimentParts.Add(ckt.Key(), new ContractExperimentPart(ckt));
                                             }
                                         }
@@ -229,10 +245,14 @@ namespace WhatDoINeed
                                     foreach (var activeContract in activeLocalContracts)
                                     {
                                         var cet = new CEP_Key_Tuple(experimentID, activeContract).Key();
-                                        //Log.Info("part: " + p.name + ", experiment module name: " + name + ", expid: " + experimentID + ", key: " + cet);
+#if DEBUG
+                                        Log.Info("part: " + p.name + ", experiment module name: " + name + ", expid: " + experimentID + ", key: " + cet);
+#endif
                                         if (experimentParts.ContainsKey(cet))
                                         {
-                                            //Log.Info("part: " + p.name + ", experiment module name: " + name + ", expid: " + experimentID + ", contract: " + activeContract);
+#if DEBUG
+                                            Log.Info("part: " + p.name + ", experiment module name: " + name + ", expid: " + experimentID + ", contract: " + activeContract);
+#endif
                                             var experimentPart = experimentParts[cet];
                                             experimentPart.parts.Add(new AvailPartWrapper(p));
                                         }
@@ -246,7 +266,7 @@ namespace WhatDoINeed
                     }
                 }
             }
-#if false
+#if DEBUG
             foreach (var epall in experimentParts)
             {
                 string parts = "";
