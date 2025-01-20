@@ -65,6 +65,7 @@
     <Compile Include="Contract.cs" />
     <Compile Include="Display.cs" />
     <Compile Include="GUISkinCopy.cs" />
+    <Compile Include="HelpWindow.cs" />
     <Compile Include="InstallChecker.cs" />
     <Compile Include="RegisterToolbar.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

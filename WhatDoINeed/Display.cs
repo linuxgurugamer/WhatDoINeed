@@ -80,6 +80,12 @@ namespace WhatDoINeed
             }
             //InvokeRepeating("SlowUpdate", 5, 5);
             SetWinPos();
+            if (!Settings.Instance.helpWindowShown)
+            {
+                ShowHelpWindow();
+                Settings.Instance.helpWindowShown = true;
+                Settings.Instance.SaveData();
+            }
         }
 
         void onEditorPartDeleted(Part p)
@@ -370,6 +376,15 @@ namespace WhatDoINeed
             return list;
         }
 #endif
+
+        void ShowHelpWindow()
+        {
+            GameObject myplayer = new GameObject("HelpWindowClass");
+
+            var w = myplayer.AddComponent<HelpWindowClass>();
+            Log.Info("Added HelpWindowClass");
+        }
+
         Vector2 contractPos;
         Dictionary<string, bool> openClosed = new Dictionary<string, bool>();
 
@@ -560,7 +575,7 @@ namespace WhatDoINeed
                         if (!settingsVisible)
                         {
                             Settings.Instance.SaveData();
-                            Settings.Instance.failToWrite = false;
+                            //Settings.Instance.failToWrite = false;
                         }
                     }
                     GUILayout.FlexibleSpace();
@@ -588,6 +603,11 @@ namespace WhatDoINeed
             {
                 quickHideEnd = Time.realtimeSinceStartup + Settings.Instance.HideTime;
             }
+            if (GUI.Button(new Rect(Settings.Instance.winPos.width - 72 - 6, 2, 24, 24), "?"))
+            {
+                ShowHelpWindow();
+            }
+
             if (!Settings.Instance.lockPos)
             {
                 if (GUI.RepeatButton(new Rect(Settings.Instance.winPos.width - 23f, Settings.Instance.winPos.height - 24f, 24, 24), "", Settings.Instance.resizeButton))
@@ -685,20 +705,26 @@ namespace WhatDoINeed
             if (Settings.Instance.kspWindow.active.background == null)
             {
                 Log.Info("SetAlpha, Settings.Instance.kspWindow.active.background is null");
-                Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(GUI.skin.window.active.background);
+                //Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(GUI.skin.window.active.background);
+                Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(HighLogic.Skin.window.active.background);
             }
 
             workingWindow = Settings.Instance.kspWindow;
 
-            SetAlphaFor(Alpha, workingWindow, GUI.skin.window.active.background, workingWindow.active.textColor);
-            SetAlphaFor(Alpha, Settings.Instance.textAreaFont, GUI.skin.textArea.normal.background, Settings.Instance.textAreaFont.normal.textColor);
-            SetAlphaFor(Alpha, Settings.Instance.textAreaSmallFont, GUI.skin.textArea.normal.background, Settings.Instance.textAreaSmallFont.normal.textColor);
-            SetAlphaFor(Alpha, Settings.Instance.displayFont, GUI.skin.textArea.normal.background, Settings.Instance.displayFont.normal.textColor);
-            SetAlphaFor(Alpha, Settings.Instance.scrollViewStyle, GUI.skin.scrollView.normal.background, workingWindow.active.textColor);
+            SetAlphaFor(1, Alpha, Settings.Instance.kspWindow, HighLogic.Skin.window.active.background, workingWindow.active.textColor);
+            //SetAlphaFor(2, Alpha, Settings.Instance.textAreaFont, GUI.skin.textArea.normal.background, Settings.Instance.textAreaFont.normal.textColor);
+            //SetAlphaFor(3, Alpha, Settings.Instance.textAreaSmallFont, GUI.skin.textArea.normal.background, Settings.Instance.textAreaSmallFont.normal.textColor);
+            //SetAlphaFor(4, Alpha, Settings.Instance.displayFont, GUI.skin.textArea.normal.background, Settings.Instance.displayFont.normal.textColor);
+            //SetAlphaFor(5, Alpha, Settings.Instance.scrollViewStyle, GUI.skin.scrollView.normal.background, workingWindow.active.textColor);
         }
 
-        static void SetAlphaFor(float Alpha, GUIStyle style, Texture2D backgroundTexture, Color color)
+        static void SetAlphaFor(int id, float Alpha, GUIStyle style, Texture2D backgroundTexture, Color color)
         {
+            Log.Info("SetAlphafor, id: " + id);
+            if (backgroundTexture == null)
+            {
+                Log.Info("SetAlphaFor, Null backgroundTexture, id: " + id);
+            }
             Texture2D copyTexture = GUISkinCopy.CopyTexture2D(backgroundTexture);
 
             var pixels = copyTexture.GetPixels32();

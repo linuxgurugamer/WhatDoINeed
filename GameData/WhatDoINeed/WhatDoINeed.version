@@ -1,6 +1,6 @@
 {
   "NAME": "What Do I Need?",
-  "URL": "http://ksp.spacetux.net/avc/WhatDoINeed",
+  "URL": "https://raw.githubusercontent.com/linuxgurugamer/WhatDoINeed/refs/heads/main/WhatDoINeed.version",
   "DOWNLOAD": "https://github.com/linuxgurugamer/WhatDoINeed/releases",
   "VERSION": {
     "MAJOR": 0,

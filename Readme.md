@@ -10,24 +10,24 @@
 ### The Contract Selection screen will show a list of all active contracts.  You can deselect some or all of the active contracts on this screen.  Click the toggle to select those contracts you want to display or deselect, then click the Select Button
 
 ### The Settings page will display three toggles on the first line:
-	* Display Briefing						If checked, then the briefing for the contract will be shown
-	* Bold									Make the display font bold
-	* Lock Position							Clock the window position
-	* Hide Buttons							Hide the buttons at the bottom when the selection screen is closed
+	* Display Briefing		If checked, then the briefing for the contract will be shown
+	* Bold					Make the display font bold
+	* Lock Position			Clock the window position
+	* Hide Buttons			Hide the buttons at the bottom when the selection screen is closed
 
 ### The next two lines will have the following toggles:
-	* Allow click-through						If enabled, this will have the contract display window to 
-											allow clicks to fall through to game objects below.  This 
-											will only be enabled when the settings panel is NOT displayed
+	* Allow click-through	If enabled, this will have the contract display window to 
+							allow clicks to fall through to game objects below.  This 
+							will only be enabled when the settings panel is NOT displayed
 	* Show all active contracts upon entry	If enabled (defaults to enabled), then entering the editor will
-											automatically populate all the active contracts in the mod
+							automatically populate all the active contracts in the mod
 
 ### The following sliders are available:
-	* Transparency							Set the transparency of the window, all the way left makes the 
-											window totally transparent
-	* Hide Time								Sets the amount of time the window will hide when the H button 
-											in the upper right is pressed
-	* Font Size								Set the size of the font to be used
+	* Transparency			Set the transparency of the window, all the way left makes the 
+							window totally transparent
+	* Hide Time				Sets the amount of time the window will hide when the H button 
+							in the upper right is pressed
+	* Font Size				Set the size of the font to be used
 
 ### Additional controls are in the upper left:
 	* B					Hide or show the buttons
@@ -46,10 +46,13 @@ the parts that can provide the experiment needed.  There is a button to the left
 allow you to collapse the experiments included in that contract.
 
 ## Font Colors
-* Contacts will be shown in yellow.
-* If enabled, the briefing text will be white
-* Experiments will be shown in a light blue.  
-* Fulfilling parts (parts which can run the experiment):  The parts will be shown in either red or green.  Red means it is NOT part of the current vessel, green means it IS on the current vessel.  Additionally, for parts which are already on the vessel, the number of those parts on the vessel will be shown in parenthesis to the right of the part name
+	* Contacts will be shown in yellow.
+	* If enabled, the briefing text will be white
+	* Experiments will be shown in a light blue.  
+	* Fulfilling parts (parts which can run the experiment):  The parts will be shown in either red or green.  
+	  Red means it is NOT part of the current vessel, green means it IS on the current vessel.  Additionally, 
+	  for parts which are already on the vessel, the number of those parts on the vessel will be shown in 
+	  parenthesis to the right of the part name
 
 
 ## DEPENDENCIES

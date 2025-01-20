@@ -42,9 +42,16 @@ namespace WhatDoINeed
             {
                 initted = true;
 
-
+                Log.Info("RegisterToolbar, OnGUI initialization");
                 Settings.Instance.kspWindow = new GUIStyle(GUI.skin.window); // GUIStyle(HighLogic.Skin.window);
-                //Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(GUI.skin.window.active.background);
+
+                Settings.Instance.kspWindow.active.textColor = HighLogic.Skin.window.active.textColor;
+                //Settings.Instance.textAreaFont.normal.textColor = HighLogic.Skin.window.normal.textColor;
+
+
+
+                //Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(HighLogic.Skin.window.active.background);
+                //Settings.Instance.kspWindow.normal.background = GUISkinCopy.CopyTexture2D(HighLogic.Skin.window.normal.background);
 
                 //Settings.Instance.kspWindow = new GUIStyle(GUI.skin.window); // GUIStyle(HighLogic.Skin.window);
                 //Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(GUI.skin.window.active.background);

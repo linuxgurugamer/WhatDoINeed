@@ -28,9 +28,9 @@ namespace WhatDoINeed
         internal GUIStyle textFieldStyleRed;
         internal GUIStyle textFieldStyleNormal;
         internal GUIStyle textAreaWordWrap;
-        internal bool failToWrite = false;
 
         // Following are saved in a file
+        internal bool helpWindowShown = false;
         internal float fontSize = 12f;
         internal bool bold = false;
         internal bool initialShowAll = true;
@@ -72,6 +72,8 @@ namespace WhatDoINeed
             Log.Info("settings.SaveData");
             var configFile = new ConfigNode();
             var configFileNode = new ConfigNode(DISPLAYINFO_NODENAME);
+            
+            configFileNode.AddValue("helpWindowShown", helpWindowShown);
             configFileNode.AddValue("fontSize", fontSize);
             configFileNode.AddValue("bold", bold);
             configFileNode.AddValue("showBriefing", showBriefing);
@@ -115,6 +117,8 @@ namespace WhatDoINeed
                     var configFileNode = configFile.GetNode(DISPLAYINFO_NODENAME);
                     if (configFileNode != null)
                     {
+
+                        helpWindowShown = configFileNode.SafeLoad("helpWindowShown", helpWindowShown);
                         fontSize = configFileNode.SafeLoad("fontSize", fontSize);
                         bold = configFileNode.SafeLoad("bold", bold);
                         showBriefing = configFileNode.SafeLoad("showBriefing", showBriefing);
