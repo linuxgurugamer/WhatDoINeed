@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using ContractParser;
-using static WhatDoINeed.RegisterToolbar;
 
 namespace WhatDoINeed
 {
