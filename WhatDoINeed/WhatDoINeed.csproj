@@ -45,10 +45,10 @@
       <HintPath>$(KSPDIR)\GameData\DMagicUtilities\ContractParser\ContractParser.dll</HintPath>
     </Reference>
     <Reference Include="KIS">
-      <HintPath>R:\KSP_1.12.5-dev\GameData\KIS\Plugins\KIS.dll</HintPath>
+      <HintPath>$(KSPDIR)\GameData\KIS\Plugins\KIS.dll</HintPath>
     </Reference>
     <Reference Include="KSPDev_Utils.2.6">
-      <HintPath>R:\KSP_1.12.5-dev\GameData\KIS\Plugins\KSPDev_Utils.2.6.dll</HintPath>
+      <HintPath>$(KSPDIR)\GameData\KIS\Plugins\KSPDev_Utils.2.6.dll</HintPath>
     </Reference>
     <Reference Include="KSP_Log">
       <HintPath>$(KSPDIR)\GameData\SpaceTuxLibrary\Plugins\KSP_Log.dll</HintPath>
