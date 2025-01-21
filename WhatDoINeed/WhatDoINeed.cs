@@ -6,19 +6,19 @@ using ClickThroughFix;
 using ToolbarControl_NS;
 using SpaceTuxUtility;
 using ContractParser;
-
+using System.Linq;
 
 using static WhatDoINeed.RegisterToolbar;
+using Workshop.W_KIS;
 
-// Transparency for unity skin ???
 
 namespace WhatDoINeed
 {
     [KSPAddon(KSPAddon.Startup.EditorAny, false)]
-    public class Display : MonoBehaviour
+    public class WhatDoINeed : MonoBehaviour
     {
         private static ToolbarControl toolbarControl;
-        internal static ToolbarControl Toolbar { get { return toolbarControl; } }
+        //internal static ToolbarControl Toolbar { get { return toolbarControl; } }
 
         bool hide = false;
         void OnHideUI() { hide = true; }
@@ -49,6 +49,7 @@ namespace WhatDoINeed
 
         Vector2 scrollPos;
 
+        bool kisAvailable = false;
         public void Start()
         {
             if (!HighLogic.LoadedSceneIsEditor || !(HighLogic.CurrentGame.Mode == Game.Modes.CAREER || HighLogic.CurrentGame.Mode == Game.Modes.SCIENCE_SANDBOX))
@@ -56,18 +57,15 @@ namespace WhatDoINeed
                 Log.Info("Sandbox mode, exiting");
                 return;
             }
+            kisAvailable = HasMod.hasMod("KIS");
+            Log.Info("kisAvailable: " + kisAvailable);
+
             lastAlpha = -1;
+            Settings.Instance.LoadData();
+
             SetUpExperimentParts();
             GameEvents.onHideUI.Add(OnHideUI);
             GameEvents.onShowUI.Add(OnShowUI);
-
-            GameEvents.onEditorPodSelected.Add(onEditorPodSelected);
-            GameEvents.onEditorPodPicked.Add(onEditorPodSelected);
-            GameEvents.onEditorPodDeleted.Add(onEditorPodDeleted);
-
-
-            GameEvents.onEditorPartEvent.Add(onEditorPartEvent);
-
 
             winId = WindowHelper.NextWindowId("WhatDoINeed");
             selWinId = WindowHelper.NextWindowId("CCD_Select");
@@ -84,7 +82,7 @@ namespace WhatDoINeed
                      "WhatDoINeed/PluginData/textures/WhatDoINeed-24.png",
                     MODNAME);
             }
-            //InvokeRepeating("SlowUpdate", 5, 5);
+
             SetWinPos();
             if (!Settings.Instance.helpWindowShown)
             {
@@ -92,35 +90,31 @@ namespace WhatDoINeed
                 Settings.Instance.helpWindowShown = true;
                 Settings.Instance.SaveData();
             }
+            if (Settings.Instance.reopenIfLastOpen)
+            {
+                //toolbarControl.buttonActive =
+                    visible = Settings.Instance.lastVisibleStatus;
+            }
         }
 
         void OnDestroy()
         {
             GameEvents.onHideUI.Remove(OnHideUI);
             GameEvents.onShowUI.Remove(OnShowUI);
-            GameEvents.onEditorPartEvent.Remove(onEditorPartEvent);
-            GameEvents.onEditorPodSelected.Remove(onEditorPodSelected);
-            GameEvents.onEditorPodPicked.Remove(onEditorPodSelected);
-
-
         }
 
-        void onEditorPodSelected(Part p)
+        void Update()
         {
-            ScanShip();
-        }
-        void onEditorPodDeleted()
-        {
-            ScanShip();
-        }
-        void onEditorPartEvent(ConstructionEventType constrE, Part part)
-        {
-            ScanShip();
+            if (Input.GetMouseButtonUp(0) || Input.GetMouseButtonUp(1) || Input.GetMouseButtonUp(2))
+            {
+                Log.Info("Update, Input.GetMouseButtonUp(0)");
+                ScanShip();
+            }
         }
 
         void ScanShip()
         {
-            //Log.Info("ScanShip");
+            Log.Info("ScanShip");
             // First set all experiments to false, then scan
             // the vessel's parts
             foreach (var ep in experimentParts)
@@ -139,7 +133,57 @@ namespace WhatDoINeed
                         {
                             ep.Value.numExpAvail++;
                             ap.numAvailable++;
-                            Log.Info("ScanShip, found part: " + p.name);
+                            //Log.Info("ScanShip, found part: " + p.name);
+                        }
+                    }
+                }
+                foreach (var m in p.Modules)
+                {
+                    if (m is ModuleInventoryPart)
+                    {
+                        foreach (StoredPart sp in ((ModuleInventoryPart)m).storedParts.Values)
+                        {
+                            foreach (var ep in experimentParts)
+                            {
+                                foreach (var ap in ep.Value.parts)
+                                {
+
+                                    if (ap.part.name == sp.partName)
+                                    {
+                                        ep.Value.numExpAvail++;
+                                        ap.numAvailable++;
+                                        //Log.Info("ScanShip, found part: " + p.name);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            // Scan all parts stored in Kerbal Inventory System inventories
+            if (kisAvailable)
+                ScanShipKISInventory();
+        }
+
+        void ScanShipKISInventory()
+        { 
+            foreach (Part p in EditorLogic.fetch.ship.Parts)
+            {
+                var availableItems = KISWrapper.GetInventories(p).SelectMany(i => i.items).ToArray();
+                foreach (KeyValuePair<int, W_KIS_Item> i in availableItems)
+                {
+                    var kisInvPart = i.Value.availablePart;
+                    foreach (var ep in experimentParts)
+                    {
+                        foreach (var ap in ep.Value.parts)
+                        {
+                            if (kisInvPart.name == ap.part.name)
+                            {
+                                ep.Value.numExpAvail++;
+                                ap.numAvailable++;
+                            }
                         }
                     }
                 }
@@ -233,13 +277,9 @@ namespace WhatDoINeed
                                                              experimentParts[ckt.Key()].parts.Add(new AvailPartWrapper(p)); 
                                                             break;
                                                         }
-                                                    }
-                                                  
-
+                                                    }                                                 
                                                 }
-
                                             }
-
                                         }
                                         if (experiment != null)
                                         {
@@ -254,7 +294,6 @@ namespace WhatDoINeed
                                              
                                             }
                                         }
-
                                     }
                                 }
                             }
@@ -306,7 +345,7 @@ namespace WhatDoINeed
                     }
                 }
             }
-#if DEBUG
+#if false
             foreach (var epall in experimentParts)
             {
                 string parts = "";
@@ -317,18 +356,20 @@ namespace WhatDoINeed
 #endif
 
             ScanShip();
+
+#if true
             var aContracts = contractParser.getActiveContracts;
             foreach (var a in aContracts)
             {
                 if (!Settings.Instance.activeContracts.ContainsKey(a.ID))
                     Settings.Instance.activeContracts.Add(a.ID, new Contract(a));
             }
-            if (Settings.Instance.initialShowAll)
+            if (Settings.Instance.initialShowAll && Settings.Instance.activeContracts.Count == 0)
             {
                 foreach (var a in Settings.Instance.activeContracts)
                     a.Value.selected = true;
             }
-
+#endif
         }
 
         public void SetWinPos()
@@ -348,6 +389,7 @@ namespace WhatDoINeed
         private void GUIToggle()
         {
             visible = !visible;
+            Settings.Instance.lastVisibleStatus = visible;
         }
 
         public void OnGUI()
@@ -556,21 +598,12 @@ namespace WhatDoINeed
                     GUILayout.Label("Show all active contracts upon entry");
                     GUILayout.FlexibleSpace();
                 }
-#if false
+#if true
                 using (new GUILayout.HorizontalScope())
                 {
-                    Settings.Instance.saveToFile = GUILayout.Toggle(Settings.Instance.saveToFile, "");
-                    GUILayout.Label("Save to file");
-                    if (Settings.Instance.saveToFile)
-                    {
-                        bool exists = false;
-                        if (Settings.Instance.fileName.Length > 0)
-                            exists = Directory.Exists(Path.GetDirectoryName(Settings.Instance.fileName)) || Path.GetDirectoryName(Settings.Instance.fileName) == "";
-                        GUILayout.Space(20);
-                        Settings.Instance.fileName = GUILayout.TextField(Settings.Instance.fileName,
-                           exists ? Settings.Instance.textFieldStyleNormal : Settings.Instance.textFieldStyleRed,
-                           GUILayout.MinWidth(60), GUILayout.ExpandWidth(true));
-                    }
+                    Settings.Instance.reopenIfLastOpen = GUILayout.Toggle(Settings.Instance.reopenIfLastOpen, "");
+                    GUILayout.Label("Reopen when entering editor");
+                    GUILayout.FlexibleSpace();
                 }
 #endif
 
@@ -608,7 +641,10 @@ namespace WhatDoINeed
                         selectVisible = true;
 
                         if (Settings.Instance.activeContracts == null)
+                        {
+                            Log.Error("activeContracts is null");
                             Settings.Instance.activeContracts = new Dictionary<Guid, Contract>();
+                        }
 #if false
                         var aContracts = contractParser.getActiveContracts;
                         foreach (var a in aContracts)

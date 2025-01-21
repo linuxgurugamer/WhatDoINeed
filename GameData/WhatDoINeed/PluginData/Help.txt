@@ -1,6 +1,8 @@
 
 This is a simple mod designed to show on-screen what science parts are needed to support the selected contracts.  The display can be made transparent and click-through can be allowed to allow it to not interfere with the editor.  It is only available in the Editor (VAB or SPH)
 
+This will also show what parts are needed to fulfil part testing contracts and vessel repair contracts
+
 The toolbar button looks like the following:
 <IMAGE=WhatDoINeed/PluginData/Textures/WhatDoINeed-38.png>
 

@@ -25,7 +25,7 @@ namespace WhatDoINeed
 
         void Start()
         {
-            ToolbarControl.RegisterMod(Display.MODID, Display.MODNAME);
+            ToolbarControl.RegisterMod(WhatDoINeed.MODID, WhatDoINeed.MODNAME);
 #if false
             Settings.Instance.kspWindow = new GUIStyle(HighLogic.Skin.window);
             Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(HighLogic.Skin.window.active.background);
@@ -33,7 +33,6 @@ namespace WhatDoINeed
             Settings.Instance.kspWindow = new GUIStyle(GUI.skin.window); // GUIStyle(HighLogic.Skin.window);
             Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(GUI.skin.window.active.background);
 #endif
-            Settings.Instance.LoadData();
         }
 
         void OnGUI()
@@ -75,8 +74,6 @@ namespace WhatDoINeed
 
                 Settings.Instance.resizeButton = GetToggleButtonStyle("resize", 20, 20, true);
 
-                Settings.Instance.fileName =  "ContractData.txt";
-
                 Settings.Instance.textFieldStyleRed = new GUIStyle(GUI.skin.scrollView) // GUIStyle(GUI.skin.textField)
                 {
                     focused = { textColor = Color.red },
@@ -90,7 +87,7 @@ namespace WhatDoINeed
                 };
                 Settings.Instance.scrollViewStyle = new GUIStyle(GUI.skin.scrollView);
 
-                Display.SetFontSizes(Settings.Instance.fontSize, Settings.Instance.bold);
+                WhatDoINeed.SetFontSizes(Settings.Instance.fontSize, Settings.Instance.bold);
                 //Display.SetAlpha(Settings.Instance.Alpha);
             }
         }

@@ -44,6 +44,12 @@
     <Reference Include="ContractParser">
       <HintPath>$(KSPDIR)\GameData\DMagicUtilities\ContractParser\ContractParser.dll</HintPath>
     </Reference>
+    <Reference Include="KIS">
+      <HintPath>R:\KSP_1.12.5-dev\GameData\KIS\Plugins\KIS.dll</HintPath>
+    </Reference>
+    <Reference Include="KSPDev_Utils.2.6">
+      <HintPath>R:\KSP_1.12.5-dev\GameData\KIS\Plugins\KSPDev_Utils.2.6.dll</HintPath>
+    </Reference>
     <Reference Include="KSP_Log">
       <HintPath>$(KSPDIR)\GameData\SpaceTuxLibrary\Plugins\KSP_Log.dll</HintPath>
     </Reference>
@@ -63,10 +69,11 @@
       <DependentUpon>AssemblyVersion.tt</DependentUpon>
     </Compile>
     <Compile Include="Contract.cs" />
-    <Compile Include="Display.cs" />
+    <Compile Include="WhatDoINeed.cs" />
     <Compile Include="GUISkinCopy.cs" />
     <Compile Include="HelpWindow.cs" />
     <Compile Include="InstallChecker.cs" />
+    <Compile Include="KIS\KISWrapper.cs" />
     <Compile Include="RegisterToolbar.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="settings.cs" />

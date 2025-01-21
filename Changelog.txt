@@ -11,3 +11,12 @@
 	Fix when first part is a fulfilling part, or when the only part is a fulfilling part and it is deleted
 	Add ability to detect parts needed for parts testing
 	Add ability to detect parts needed for repair
+
+0.0.1.3
+	Updated help text for additional functionality
+	Added support for stock inventory system
+	Add support for KIS
+	Simplified checks for part/inventory changes by only checking for mouse up events
+	Added code to remember last contracts selected
+	Added code to optionally reopen window if it was open when the editor is exited
+	Renamed main module from Display to WhatDoINeed
