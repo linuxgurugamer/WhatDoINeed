@@ -23,16 +23,27 @@ namespace WhatDoINeed
     {
         public string expID;
         public Guid contractGuid;
+        public string part;
 
         public string Key()
         {
-            return expID + "+" + contractGuid.ToString();
+            if (part == "")
+                return expID + "+" + contractGuid.ToString();
+            else
+                return expID + "+" + part + "+" + contractGuid.ToString();
         }
 
         public CEP_Key_Tuple(string experimentID, Guid contractGid)
         {
             this.expID = experimentID;
             this.contractGuid = contractGid;
+            part = "";
+        }
+        public CEP_Key_Tuple(string experimentID, Guid contractGid, string part)
+        {
+            this.expID = experimentID;
+            this.contractGuid = contractGid;
+            this.part = part;
         }
 
     }
@@ -50,11 +61,13 @@ namespace WhatDoINeed
     {
         public AvailablePart part;
         public string partTitle;
+        public int numAvailable;
 
         public AvailPartWrapper(AvailablePart part)
         {
             this.part = part;
             this.partTitle = getPartTitle(part.name);
+            numAvailable = 0;
         }
 
         private string getPartTitle(string name)

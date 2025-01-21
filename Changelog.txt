@@ -4,3 +4,10 @@
 0.0.1.1
 	Fixed memory leak from not released callbacks
 	Added support for ScanSAT
+
+0.0.1.2
+	Fixed contract list not being cleared after finishing or closing some contracts
+	Fix all fulfilling parts being set green when one is added
+	Fix when first part is a fulfilling part, or when the only part is a fulfilling part and it is deleted
+	Add ability to detect parts needed for parts testing
+	Add ability to detect parts needed for repair

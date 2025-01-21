@@ -60,9 +60,15 @@ namespace WhatDoINeed
             SetUpExperimentParts();
             GameEvents.onHideUI.Add(OnHideUI);
             GameEvents.onShowUI.Add(OnShowUI);
-            GameEvents.onEditorPartDeleted.Add(onEditorPartDeleted);
-            GameEvents.onEditorPartPlaced.Add(onEditorPartPlaced);
-            GameEvents.onEditorPartPicked.Add(onEditorPartPicked);
+
+            GameEvents.onEditorPodSelected.Add(onEditorPodSelected);
+            GameEvents.onEditorPodPicked.Add(onEditorPodSelected);
+            GameEvents.onEditorPodDeleted.Add(onEditorPodDeleted);
+
+
+            GameEvents.onEditorPartEvent.Add(onEditorPartEvent);
+
+
             winId = WindowHelper.NextWindowId("WhatDoINeed");
             selWinId = WindowHelper.NextWindowId("CCD_Select");
             manualContractWinId = WindowHelper.NextWindowId("ManualContractEntry");
@@ -92,29 +98,23 @@ namespace WhatDoINeed
         {
             GameEvents.onHideUI.Remove(OnHideUI);
             GameEvents.onShowUI.Remove(OnShowUI);
-            GameEvents.onEditorPartDeleted.Remove(onEditorPartDeleted);
-            GameEvents.onEditorPartPlaced.Remove(onEditorPartPlaced);
-            GameEvents.onEditorPartPicked.Remove(onEditorPartPicked);
+            GameEvents.onEditorPartEvent.Remove(onEditorPartEvent);
+            GameEvents.onEditorPodSelected.Remove(onEditorPodSelected);
+            GameEvents.onEditorPodPicked.Remove(onEditorPodSelected);
+
 
         }
-        void onEditorPartDeleted(Part p)
+
+        void onEditorPodSelected(Part p)
         {
-            //Log.Info("onEditorPartDeleted");
             ScanShip();
         }
-        void onEditorPartPlaced(Part p)
+        void onEditorPodDeleted()
         {
-            //Log.Info("onEditorPartPlaced");
-            ScanShip();
-        }
-        void onEditorPartPicked(Part p)
-        {
-            //Log.Info("onEditorPartPicked");
             ScanShip();
         }
         void onEditorPartEvent(ConstructionEventType constrE, Part part)
         {
-            //Log.Info("onEditorPartEvent");
             ScanShip();
         }
 
@@ -126,6 +126,8 @@ namespace WhatDoINeed
             foreach (var ep in experimentParts)
             {
                 ep.Value.numExpAvail = 0;
+                foreach (var p in ep.Value.parts)
+                    p.numAvailable = 0;
             }
             foreach (Part p in EditorLogic.fetch.ship.Parts)
             {
@@ -134,7 +136,11 @@ namespace WhatDoINeed
                     foreach (var ap in ep.Value.parts)
                     {
                         if (p.name == ap.part.name)
+                        {
                             ep.Value.numExpAvail++;
+                            ap.numAvailable++;
+                            Log.Info("ScanShip, found part: " + p.name);
+                        }
                     }
                 }
             }
@@ -152,6 +158,7 @@ namespace WhatDoINeed
             Log.Info("SetUpExperimentParts");
             // First get list of all experiments in the active contracts
 
+            activeLocalContracts.Clear();
             ConfigNode configNode = new ConfigNode();
             HighLogic.CurrentGame.Save(configNode);
             ConfigNode gameNode = configNode.GetNode("GAME");
@@ -177,7 +184,7 @@ namespace WhatDoINeed
                                 {
                                     string param_name = param.GetValue("name");
                                     string param_state = param.GetValue("state");
-
+                                    string param_part;
                                     string experiment = null;
                                     if (param_state == "Incomplete")
                                     {
@@ -199,6 +206,37 @@ namespace WhatDoINeed
                                             if (param_name == "SCANsatCoverage")
                                             {
                                                 param.TryGetValue("scanName", ref experiment);  // Now check for Station Science experiments
+                                            }
+                                            if (param_name == "USAdvancedScience")
+                                            {
+                                                param.TryGetValue("experimentID", ref experiment);  // Now check for Station Science experiments
+                                            }
+                                            if (param_name == "RepairPartParameter"  || param_name == "PartTest")
+                                            {
+                                                if (param_name == "RepairPartParameter")
+                                                param_part = param.GetValue("partName");
+                                                else
+                                                    param_part = param.GetValue("part");
+
+                                                CEP_Key_Tuple ckt = new CEP_Key_Tuple(param_name, contractGuid, param_part);
+                                                if (!experimentParts.ContainsKey(ckt.Key()))
+                                                {
+#if DEBUG
+                                                    Log.Info("Contract guid: " + contractGuid + ", experiment: " + param_name + ", part: " + param_part + ", key: " + ckt.Key());
+#endif
+                                                    experimentParts.Add(ckt.Key(), new ContractExperimentPart(ckt));
+
+                                                    foreach (AvailablePart p in PartLoader.LoadedPartsList)
+                                                    {
+                                                        if (p.name == param_part)
+                                                        {
+                                                             experimentParts[ckt.Key()].parts.Add(new AvailPartWrapper(p)); 
+                                                            break;
+                                                        }
+                                                    }
+                                                  
+
+                                                }
 
                                             }
 
@@ -211,7 +249,9 @@ namespace WhatDoINeed
 #if DEBUG
                                                 Log.Info("Contract guid: " + contractGuid + ", experiment: " + experiment + ", key: " + ckt.Key());
 #endif
+
                                                 experimentParts.Add(ckt.Key(), new ContractExperimentPart(ckt));
+                                             
                                             }
                                         }
 
@@ -275,6 +315,7 @@ namespace WhatDoINeed
                 Log.Info("Key: " + epall.Key + ",    Parts: " + parts);
             }
 #endif
+
             ScanShip();
             var aContracts = contractParser.getActiveContracts;
             foreach (var a in aContracts)
@@ -470,10 +511,10 @@ namespace WhatDoINeed
                                         using (new GUILayout.HorizontalScope())
                                         {
                                             GUILayout.Space(40);
-                                            if (f.numExpAvail == 0)
+                                            if (part.numAvailable == 0)
                                                 GUILayout.Label("<color=#ff0000>" + part.partTitle + "</color>", Settings.Instance.displayFont);
                                             else
-                                                GUILayout.Label("<color=#00ff00>" + part.partTitle + " (" + f.numExpAvail + ")"
+                                                GUILayout.Label("<color=#00ff00>" + part.partTitle + " (" + part.numAvailable + ")"
                                                     + "</color>", Settings.Instance.displayFont);
                                         }
                                     }
@@ -658,7 +699,7 @@ namespace WhatDoINeed
         static internal void SetFontSizes(float fontSize, bool bold)
         {
 
-            Settings.Instance.largeDisplayFont.fontSize = (int)fontSize+2;
+            Settings.Instance.largeDisplayFont.fontSize = (int)fontSize + 2;
             Settings.Instance.largeDisplayFont.fontStyle = FontStyle.Bold; // bold ? FontStyle.Bold : FontStyle.Normal;
             Settings.Instance.largeDisplayFont.normal.textColor = Color.yellow;
             Settings.Instance.largeDisplayFont.border = new RectOffset();
@@ -711,7 +752,7 @@ namespace WhatDoINeed
 
             copyTexture.SetPixels32(pixels);
             copyTexture.Apply();
-           return copyTexture;
+            return copyTexture;
         }
 #endif
 
