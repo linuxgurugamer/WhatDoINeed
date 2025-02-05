@@ -40,7 +40,7 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="ButtonManager">
-      <HintPath>R:\KSP_1.12.5-dev\GameData\SpaceTuxLibrary\Plugins\ButtonManager.dll</HintPath>
+      <HintPath>$(KSPDIR)\GameData\SpaceTuxLibrary\Plugins\ButtonManager.dll</HintPath>
     </Reference>
     <Reference Include="ClickThroughBlocker, Version=0.1.6.5, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
