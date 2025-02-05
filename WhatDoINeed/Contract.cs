@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using ContractParser;
+//using KSP_Log;
+
+using static WhatDoINeed.RegisterToolbar;
 
 namespace WhatDoINeed
 {
@@ -8,6 +11,7 @@ namespace WhatDoINeed
     {
         internal bool selected;
         internal bool active;
+        internal Dictionary<string, string> experiments;
 
         internal contractContainer contractContainer;
 
@@ -16,6 +20,7 @@ namespace WhatDoINeed
             selected = false;
             active = true;
             contractContainer = cc;
+            experiments = new Dictionary<string, string>();
         }
     }
 
@@ -39,6 +44,7 @@ namespace WhatDoINeed
             this.contractGuid = contractGid;
             part = "";
         }
+
         public CEP_Key_Tuple(string experimentID, Guid contractGid, string part)
         {
             this.expID = experimentID;
@@ -57,17 +63,28 @@ namespace WhatDoINeed
         NONE
     }
 
-    public class AvailPartWrapper
+    internal class AvailPartWrapper
     {
-        public AvailablePart part;
-        public string partTitle;
-        public int numAvailable;
+        internal AvailablePart part;
+        internal string partTitle;
+        internal int numAvailable;
+        internal SCANsatSCANtype scanType;
+        internal bool scanSatPart = false;
 
         public AvailPartWrapper(AvailablePart part)
         {
             this.part = part;
             this.partTitle = getPartTitle(part.name);
             numAvailable = 0;
+        }
+
+        public AvailPartWrapper(AvailablePart part, SCANsatSCANtype scanType)
+        {
+            this.part = part;
+            this.partTitle = getPartTitle(part.name);
+            numAvailable = 0;
+            this.scanType = scanType;
+            scanSatPart = true;
         }
 
         private string getPartTitle(string name)
@@ -88,6 +105,8 @@ namespace WhatDoINeed
     public class ContractExperimentPart
     {
         internal string experimentID;
+        internal SCANsatSCANtype scanType;
+        internal bool scanSatPart = false;
         internal string experimentTitle;
         internal Guid contractGuid;
         internal List<AvailPartWrapper> parts;
@@ -101,6 +120,26 @@ namespace WhatDoINeed
             this.contractGuid = tuple.contractGuid;
             experimentTitle = getExpTitle(this.experimentID);
         }
+
+        public ContractExperimentPart(CEP_Key_Tuple tuple, string scansatExpID)
+        {
+            parts = new List<AvailPartWrapper>();
+            //parts.Add(part);
+            this.experimentID = tuple.expID;
+            this.contractGuid = tuple.contractGuid;
+            experimentTitle = getExpTitle(scansatExpID);
+            string s;
+            Log.Info("expID: " + tuple.expID);
+            if (tuple.expID.Length >= 9 && tuple.expID.Substring(0, 7) == "SCANsat")
+                s = tuple.expID.Substring(8);
+            else
+                s = tuple.expID; //.Substring(8);
+
+            scanType = (SCANsatSCANtype)(short.Parse(scansatExpID));
+            scanSatPart = true;
+        }
+
+
 
         private string getExpTitle(string name)
         {

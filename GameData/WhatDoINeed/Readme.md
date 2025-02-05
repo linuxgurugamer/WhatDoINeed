@@ -54,6 +54,9 @@ allow you to collapse the experiments included in that contract.
 	  for parts which are already on the vessel, the number of those parts on the vessel will be shown in 
 	  parenthesis to the right of the part name
 
+## Supported Mods
+	* Orbital Science
+	* ScanSAT
 
 ## DEPENDENCIES
 	* ClickThroughBlocker

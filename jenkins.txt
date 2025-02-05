@@ -37,6 +37,7 @@
 3:WhatDoINeed.version,GameData/WhatDoINeed
 3:License.md,GameData/WhatDoINeed
 3:Readme.md,GameData/WhatDoINeed
+3:changelog.cfg,GameData/WhatDoINeed
 
 # 4:SOURCDIR, DESTDIR
 #4:Textures,GameData/ManeuverQueue/Textures

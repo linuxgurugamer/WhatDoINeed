@@ -13,43 +13,9 @@ Clicking the button for this mod will bring up a simple window which will look s
 
 
 The initial screen will initially show all active contracts.  At the bottom there will be three buttons:
-    * Select		Click to open contract selection screen
-    * Close			Close the window
-    * Settings		Open the settings panel
-
-The Contract Selection screen will show a list of all active contracts.  You can deselect some or all of the active contracts on this screen.  Click the toggle to select those contracts you want to display or deselect, then click the Select Button
-
-The Settings page will display three toggles on the first line:
-    * Display Briefing		If checked, then the briefing for the contract will be shown
-    * Bold					Make the display font bold
-    * Lock Position			Clock the window position
-    * Hide Buttons			Hide the buttons at the bottom when the selection screen is closed
-
-The next two lines will have the following toggles:
-    * Allow click-through	If enabled, this will have the contract display window to 
-                            allow clicks to fall through to game objects below.  This 
-                            will only be enabled when the settings panel is NOT displayed
-    * Show all active contracts upon entry	If enabled (defaults to enabled), then entering the editor will
-                            automatically populate all the active contracts in the mod
-
-The following sliders are available:
-    * Transparency			Set the transparency of the window, all the way left makes the 
-                            window totally transparent
-    * Hide Time				Sets the amount of time the window will hide when the H button 
-                            in the upper right is pressed
-    * Font Size				Set the size of the font to be used
-
-Additional controls are in the upper left:
-    * B					Hide or show the buttons
-    * L					Lock the position of the window.  When locked, the window cannot be moved or resized
-    * S					Show the Settings panel
-
-Upper right:
-    * X					Close the window
-
-Lower right:
-    * diagonal arrow		Resize the window
-
+    * Select        Click to open contract selection screen
+    * Close         Close the window
+    * Settings      Open the settings panel
 
 The window will show the selected active contracts.  Initially all experiments will be shown, along with all 
 the parts that can provide the experiment needed.  There is a button to the left of each contract, which will
@@ -63,4 +29,50 @@ Font Colors
       Red means it is NOT part of the current vessel, green means it IS on the current vessel.  Additionally, 
       for parts which are already on the vessel, the number of those parts on the vessel will be shown in 
       parenthesis to the right of the part name
+
+
+The Contract Selection screen will show a list of all active contracts.  You can deselect some or all of the active contracts on this screen.  Click the contract title to select those contracts you want to display or deselect, then click the Select Button.  Active contracts are shown in green, inactive will be shown in read
+
+Clicking on the Settings button will change the window to display the settings:
+
+<IMAGE=WhatDoINeed/PluginData/Textures/settings.png>
+
+The Settings page has the following available:
+    * Display Briefing      If checked, then the briefing for the contract will be shown
+    * Bold                      Make the display font bold
+    * Lock Position         Clock the window position
+    * Hide Buttons          Hide the buttons at the bottom when the selection screen is closed
+
+    * Allow click-through   If enabled, this will have the contract display window to 
+                                     allow clicks to fall through to game objects below.  This 
+                                     will only be enabled when the settings panel is NOT displayed
+
+    * Show all active          If enabled (defaults to enabled), then entering the editor will
+      contracts upon entry  automatically populate all the active contracts in the mod
+
+    * Check for Missing     Will check for any missing experiments when launching a vessel
+      Experiments Before    and report it in a dialog.  You will be able to continue or 
+      Launch                      cancel the launch.  Defaults to enabled
+
+    * Only Check Selected   When enabled will only look at those contracts which you have
+      Contracts                     selected and are visible in the window.  Defaults to enabled
+
+The following sliders are available:
+    * Transparency        Set the transparency of the window, all the way left makes the 
+                                    window totally transparent
+    * Hide Time             Sets the amount of time the window will hide when the H button 
+                                    in the upper right is pressed
+    * Font Size              Set the size of the font to be used
+
+Additional controls are in the upper left:
+    * B                 Hide or show the buttons
+    * L                 Lock the position of the window.  When locked, the window cannot be moved or resized
+    * S                 Show the Settings panel
+
+Upper right:
+    * X                 Close the window
+
+Lower right:
+    * diagonal arrow    Resize the window
+
 

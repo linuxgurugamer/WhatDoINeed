@@ -1,2 +1,12 @@
 TODO
 
+Test following mods:
+
+	Orbital Survey Plus
+	Sci Rev ???
+	StationScience (probably not_
+	Impact
+	NehemiahEngineeringOrbitalScience
+	Tarsier Space Technology
+	Rover Science
+	Space Dust

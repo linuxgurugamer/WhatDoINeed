@@ -44,6 +44,9 @@ namespace WhatDoINeed
         internal bool reopenIfLastOpen = true;
         internal bool lastVisibleStatus = false;
 
+        internal bool checkForMissingBeforeLaunch = true;
+        internal bool onlyCheckSelectedContracts = true;
+
         internal Rect winPos = new Rect(Screen.width / 2 - WINDOW_WIDTH / 2, Screen.height / 2 - WINDOW_HEIGHT / 2, WINDOW_WIDTH, WINDOW_HEIGHT);
         //internal Rect editorWinPos;
 
@@ -89,7 +92,9 @@ namespace WhatDoINeed
 
             configFileNode.AddValue("reopenIfLastOpen", reopenIfLastOpen);
             configFileNode.AddValue("lastVisibleStatus", lastVisibleStatus);
-            
+
+            configFileNode.AddValue("checkForMissingBeforeLaunch", checkForMissingBeforeLaunch);
+            configFileNode.AddValue("onlyCheckSelectedContracts", onlyCheckSelectedContracts);
 
             configFileNode.AddValue("x", winPos.x);
             configFileNode.AddValue("y", winPos.y);
@@ -139,7 +144,10 @@ namespace WhatDoINeed
 
                         reopenIfLastOpen = configFileNode.SafeLoad("reopenIfLastOpen", reopenIfLastOpen);
                         lastVisibleStatus = configFileNode.SafeLoad("lastVisibleStatus", lastVisibleStatus);
-                        
+
+                        checkForMissingBeforeLaunch = configFileNode.SafeLoad("checkForMissingBeforeLaunch", checkForMissingBeforeLaunch);
+                        onlyCheckSelectedContracts = configFileNode.SafeLoad("onlyCheckSelectedContracts", onlyCheckSelectedContracts);
+
                         winPos.x = configFileNode.SafeLoad("x", winPos.x);
                         winPos.y = configFileNode.SafeLoad("y", winPos.y);
                         winPos.width = configFileNode.SafeLoad("width", winPos.width);
@@ -155,13 +163,11 @@ namespace WhatDoINeed
                             //var aContracts = contractParser.getActiveContracts;
                             foreach (var guid in guids)
                             {
-                                Log.Info("CONTRACTS, contractGuid: " + guid);
                                 Guid contractGuid = new Guid(guid);
                                 foreach (var a in contractParser.getActiveContracts)
                                 {
                                     if (a.ID == contractGuid)
                                     {
-                                        Log.Info("contractGuid found in contractParser.getActiveContracts");
                                         Instance.activeContracts.Add(contractGuid, new Contract(a));
                                         activeContracts[contractGuid].selected = true;
                                         break;

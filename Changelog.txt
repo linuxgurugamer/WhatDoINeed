@@ -20,3 +20,23 @@
 	Added code to remember last contracts selected
 	Added code to optionally reopen window if it was open when the editor is exited
 	Renamed main module from Display to WhatDoINeed
+
+0.0.2 
+	Fixed window not seeing an attached or detached part until a seperate click was made
+	Left-justifed & larger font for contracts in contract selection window
+	Removed toggle from contact selection window
+	Added color coding of contracts in contract selection window (red == not selected)
+	Added support for DMagic science parts
+	Added support for REPOSoft parts
+	Fixed autoselection of all when none selected not working at times
+	Fixed last open status being honored
+	Fixed window not closing immediately upon scene exit
+	Added a confirmation window before launching a new vessel
+	Made settings window use entire window when active
+	Removed need to compile with KIS and SCANsat dlls (added a bit of Reflection)
+	Replaced the "foreach" statements with "for (int i = 0; i < var.count; i++)" where applicable (for efficiency)
+	Updated and reorganized Help window reflecting new mode for settings pane
+	Added support for SCANsat
+	Added the ConstructionParameter support
+	Fixed style of the Contract Selection window to match main window
+	Changed button name for contact selection to "Contract Selection"

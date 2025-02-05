@@ -10,6 +10,9 @@ rem    but not always
 set H=%KSPDIR%
 rem set H=R:\KSP_1.12.3_Career-Dev-JNSQ
 
+rem set H=R:\KSP_1.12.5-CenturianMaximus
+
+set H=R:\KSP_1.12.5_Candy-Career
 
 set GAMEDIR=WhatDoINeed
 set GAMEDATA="GameData"
@@ -19,6 +22,7 @@ set DP0=r:\dp0\kspdev
 
 copy /Y "%1%2" "%GAMEDATA%\%GAMEDIR%\Plugins"
 copy /Y "%1%3".pdb "%GAMEDATA%\%GAMEDIR%\Plugins"
+copy /Y changelog.cfg %GAMEDATA%\%GAMEDIR%
 
 copy /Y %VERSIONFILE% %GAMEDATA%\%GAMEDIR%
 

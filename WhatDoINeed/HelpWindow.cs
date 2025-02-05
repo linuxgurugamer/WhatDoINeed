@@ -156,9 +156,9 @@ namespace WhatDoINeed
             }
 
             scrollPos = GUILayout.BeginScrollView(scrollPos, Settings.Instance.scrollViewStyle);
-
-            foreach (var line in lines)
+            for (int i = 0; i < lines.Count; i++) 
             {
+                var line = lines[i];
                 if (line.Length >= 7 && line.Substring(0, 7) == "<IMAGE=")
                 {
                     if (l.Length > 0)
