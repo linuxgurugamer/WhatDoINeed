@@ -26,7 +26,7 @@
 	Left-justifed & larger font for contracts in contract selection window
 	Removed toggle from contact selection window
 	Added color coding of contracts in contract selection window (red == not selected)
-	Added support for DMagic science parts
+	Added support for DMagic science partsgvim 
 	Added support for REPOSoft parts
 	Fixed autoselection of all when none selected not working at times
 	Fixed last open status being honored
@@ -40,3 +40,10 @@
 	Added the ConstructionParameter support
 	Fixed style of the Contract Selection window to match main window
 	Changed button name for contact selection to "Contract Selection"
+
+0.0.3 
+	Improved the Unfullfillable Contracts dialog a bit
+	Fixed occasional exception when scanning DMagic parts
+	Fixed exceptions when placing first part
+	Fixed the initialShowAll to look at all contracts if no contracts are selected
+	Added support for Rover Science (latest release)

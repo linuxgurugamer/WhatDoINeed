@@ -14,8 +14,8 @@ namespace WhatDoINeed
         {
             if (Log == null)
 #if DEBUG
-                //Log = new Log("WhatDoINeed", Log.LEVEL.INFO);
-            Log = new Log("WhatDoINeed", Log.LEVEL.ERROR);
+                Log = new Log("WhatDoINeed", Log.LEVEL.INFO);
+            //Log = new Log("WhatDoINeed", Log.LEVEL.ERROR);
 #else
                 Log = new Log("WhatDoINeed", Log.LEVEL.ERROR);
 #endif

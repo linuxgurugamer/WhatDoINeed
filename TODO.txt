@@ -2,11 +2,11 @@ TODO
 
 Test following mods:
 
-	Orbital Survey Plus
+	Orbital Survey Plus  https://forum.kerbalspaceprogram.com/topic/109207-112x-orbital-survey-plus-v236/page/9/
 	Sci Rev ???
-	StationScience (probably not_
+	StationScience (probably not working)
 	Impact
 	NehemiahEngineeringOrbitalScience
-	Tarsier Space Technology
-	Rover Science
+	Tarsier Space Technology (verify it's working)
+	Research Bodies
 	Space Dust

@@ -12,7 +12,7 @@ rem set H=R:\KSP_1.12.3_Career-Dev-JNSQ
 
 rem set H=R:\KSP_1.12.5-CenturianMaximus
 
-set H=R:\KSP_1.12.5_Candy-Career
+rem set H=R:\KSP_1.12.5_Candy-Career
 
 set GAMEDIR=WhatDoINeed
 set GAMEDATA="GameData"

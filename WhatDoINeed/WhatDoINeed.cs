@@ -58,8 +58,10 @@ namespace WhatDoINeed
         bool kisAvailable = false;
         bool scansatAvailable = false;
 
-        const string htmlRed = "<color=#ff0000>";
-        const string htmlGreen = "<color=#00ff00>";
+        //const string htmlRed = "<color=#ff0000>";
+        const string htmlRed = "<color=#fff12a>";  // Light yellow (copied from colors found in Mission Control)
+        //const string htmlGreen = "<color=#00ff00>";
+        const string htmlGreen = "<color=#8cf893>"; // Light green (copied from colors found in Mission Control)
         const string htmlPaleblue = "<color=#acfcff>";
         int btnId;
 
@@ -224,14 +226,15 @@ namespace WhatDoINeed
                 if (numMissingExperiments > 0)
                 {
                     // You have active contracts that requires some parts that your vessel currently does not have.Are you sure you want to launch?
-
+#if true
                     PopupDialog.SpawnPopupDialog(new Vector2(0.5f, 0.5f),
                        new Vector2(0.5f, 0.5f),
                        new MultiOptionDialog("Fill It Up",
-                           "You have active contracts that requires some parts that your vessel\n" +
-                           "currently does not have.Are you sure you want to launch?.\n\n" +
-                           "There " + ((numSelectedcontracts == 1) ? "is " : "are ") + numSelectedcontracts + " contract(s)\n" +
-                           "There " + ((numMissingExperiments == 1) ? "is " : "are ") + numMissingExperiments + " missing experiments\n\n" +
+                           "You have active contracts that requires some parts\n" +
+                           "that your vessel currently does not have.\n\n" +
+                           "There " + ((numSelectedcontracts == 1) ? "is " : "are ") + numSelectedcontracts + " selected contract" + ((numSelectedcontracts == 1) ? "\n" : "s\n") +
+                           htmlRed + "There " + ((numMissingExperiments == 1) ? "is " : "are ") + numMissingExperiments + " missing experiment" + ((numMissingExperiments == 1) ? "\n\n" : "s\n\n") + "</color>" +
+                           "Are you sure you want to launch?\n\n" +
                            "Please select your option from the choices below",
                            "Unfullfillable Contracts",
                            HighLogic.UISkin,
@@ -270,6 +273,7 @@ namespace WhatDoINeed
                 {
                     Log.Info("OnLaunchButtonInput 4");
                     ButtonManager.BtnManager.InvokeNextDelegate(btnId, "What-Do-I-Need-next");
+#endif
                 }
             }
             else
@@ -310,6 +314,11 @@ namespace WhatDoINeed
             Log.Info("ScanShip");
             // First set all experiments to false, then scan
             // the vessel's parts
+            if (experimentParts == null)
+            {
+                Log.Error("ScanShip: experimentParts is null");
+                return;
+            }
             foreach (var ep in experimentParts)
             {
                 ep.Value.numExpAvail = 0;
@@ -320,9 +329,23 @@ namespace WhatDoINeed
                     p.numAvailable = 0;
                 }
             }
+            if (EditorLogic.fetch == null)
+            {
+                Log.Error("ScanShip, EditorLogic.fetch is null");
+                return;
+            }
+            if (EditorLogic.fetch.ship == null)
+            {
+                Log.Error("ScanShip, EditorLogic.fetch.ship is null");
+                return;
+            }
             for (int i = 0; i < EditorLogic.fetch.ship.parts.Count; i++)
             {
                 var p = EditorLogic.fetch.ship.parts[i];
+                if (p == null)
+                {
+                    continue;
+                }
                 foreach (var ep in experimentParts)
                 {
                     for (int j = 0; j < ep.Value.parts.Count - 1; j++)
@@ -336,11 +359,23 @@ namespace WhatDoINeed
                         }
                     }
                 }
+                if (p.Modules == null)
+                {
+                    continue;
+                }
                 for (int i1 = 0; i1 < p.Modules.Count; i1++)
                 {
                     var module = p.Modules[i1];
+                    if (module == null)
+                    {
+                        continue;
+                    }
                     if (module is ModuleInventoryPart)
                     {
+                        if (((ModuleInventoryPart)module).storedParts == null)
+                        {
+                            continue;
+                        }
                         foreach (StoredPart storedPart in ((ModuleInventoryPart)module).storedParts.Values)
                         {
                             foreach (var ep in experimentParts)
@@ -631,8 +666,12 @@ namespace WhatDoINeed
 
                                                                                 //if (!Settings.Instance.activeContracts.ContainsKey(contractGuid))
                                                                                 if (experiment == null)
+                                                                                {
+                                                                                    Log.Info("DMPartRequestParameter, Contract guid: " + contractGuid + ", experiment: " + part + ", part: " + part + ", key: " + ckt.Key());
                                                                                     Log.Error("Error 2, experiment is null");
-                                                                                Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, experiment);
+                                                                                }
+                                                                                else
+                                                                                    Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, experiment);
 
                                                                                 break;
                                                                             }
@@ -656,7 +695,7 @@ namespace WhatDoINeed
                                                                 CEP_Key_Tuple ckt = new CEP_Key_Tuple(param_name, contractGuid, requestedPartModule);
                                                                 if (!experimentParts.ContainsKey(ckt.Key()))
                                                                 {
-#if false
+#if true
                                                                     Log.Info("Contract guid: " + contractGuid + ", experiment: " + "PartValidation" + ", module: " + requestedPartModule + ", key: " + ckt.Key());
 #endif
                                                                     for (int n = 0; n < PartLoader.LoadedPartsList.Count; n++)
@@ -669,8 +708,7 @@ namespace WhatDoINeed
                                                                             {
                                                                                 var mNode = mNodesList[o];
                                                                                 string moduleName = mNode.GetValue("name");
-                                                                                if (moduleName.Substring(0, 2) == "dm")
-                                                                                    Log.Info("Part: " + p.name + ", moduleName: " + moduleName);
+
                                                                                 if (moduleName == requestedPartModule)
                                                                                 {
                                                                                     if (!experimentParts.ContainsKey(ckt.Key()))
@@ -679,8 +717,11 @@ namespace WhatDoINeed
                                                                                     //if (!Settings.Instance.activeContracts.ContainsKey(contractGuid))
                                                                                     if (experiment == null)
                                                                                         Log.Error("Error 3, experiment is null");
-                                                                                    Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, experiment);
-#if false
+                                                                                    experiment = "PartValidation";
+                                                                                    if (!Settings.Instance.activeContracts[contractGuid].experiments.ContainsKey(experiment))
+                                                                                        Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, experiment);
+                                                                                    experiment = null;
+#if false                   
                                                                                     if (moduleName.Substring(0, 2) == "dm")
                                                                                         Log.Info("Part: " + p.name + " has module: " + requestedPartModule + ", key: " + ckt.Key());
 #endif
@@ -728,8 +769,8 @@ namespace WhatDoINeed
                                                 else
                                                 {
                                                     Log.Info("Adding experiment to activeContracts, experiment: " + experiment);
-
-                                                    Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, experiment);
+                                                    if (!Settings.Instance.activeContracts[contractGuid].experiments.ContainsKey(experiment))
+                                                        Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, experiment);
                                                 }
                                             }
 
@@ -850,7 +891,6 @@ namespace WhatDoINeed
             Log.Info("=====================================");
 
             ScanShip();
-            // ScanContracts(); // Now done much earlier
         }
 
         void ScanContracts()
@@ -867,10 +907,15 @@ namespace WhatDoINeed
                 }
             }
             Log.Info("Active Contracts: " + Settings.Instance.activeContracts.Count);
+            int cnt = 0;
             foreach (var contract in Settings.Instance.activeContracts)
+            {
                 Log.Info("ScanContracts, Settings.Instance.activeContract: " + contract.Key);
+                if (contract.Value.selected)
+                    cnt++;
+            }
 
-            if (Settings.Instance.initialShowAll && Settings.Instance.activeContracts.Count > 0)
+            if (Settings.Instance.initialShowAll && cnt == 0) //Settings.Instance.activeContracts.Count == 0)
             {
                 foreach (var contract in Settings.Instance.activeContracts)
                     contract.Value.selected = true;
@@ -1316,7 +1361,7 @@ namespace WhatDoINeed
                     if (!settingsVisible)
                     {
                         GUILayout.FlexibleSpace();
-                        if (GUILayout.Button("Contract Selection", GUILayout.Width(90)))
+                        if (GUILayout.Button("Contract Selection", GUILayout.Width(150)))
                         {
                             selectVisible = true;
 
