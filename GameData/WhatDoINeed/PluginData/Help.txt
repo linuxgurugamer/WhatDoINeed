@@ -26,6 +26,8 @@ The window will show the selected active contracts.  Initially all experiments w
 the parts that can provide the experiment needed.  There is a button to the left of each contract, which will
 allow you to collapse the experiments included in that contract.
 
+Clicking on a part will spawn the part.  The windows will fade away for 5 seconds (changable in settings) to allow you to place the part on the vessel without interference.
+
 Font Colors
     * Contacts will be shown in yellow.
     * If enabled, the briefing text will be white
