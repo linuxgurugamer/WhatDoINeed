@@ -21,7 +21,9 @@ namespace WhatDoINeed
         AnomalyDetail = 32,
         VisualHiRes = 64,
         ResourceLoRes = 128,
-        ResourceHiRes = 256,
+        Resources = 256,  //While SCANsat defines 256 as ResourceHiRes, there isn't a ResourceHiRes experiment defined, only Resources
+        //ResourceHiRes = 256,
+
         //Everything_SCAN = 511,
         //Science = 143,
         //Everything = short.MaxValue

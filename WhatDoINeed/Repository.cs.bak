@@ -1,0 +1,936 @@
+﻿using ContractParser;
+using KSP_Log;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using static WhatDoINeed.RegisterToolbar;
+
+namespace WhatDoINeed
+{
+
+    /// <summary>
+    /// Wrapper around a part with some needed information
+    /// </summary>
+    public class AvailPartWrapper2
+    {
+        public string NameID { get; set; }
+        public List<string> Experiments { get; set; } = new List<string>(); // List of experiments this part is assigned to
+
+        internal AvailablePart part;
+        internal string partTitle;
+        internal int numAvailable;
+        internal SCANsatSCANtype scanType;
+        internal bool scanSatPart = false;
+
+        public string LogExperiments()
+        {
+            string s = "";
+            foreach (var e in Experiments)
+                s += e + ", ";
+            return s;
+        }
+        public string Log()
+        {
+            return "NameID: " + NameID + ", part.title: " + part.title + ", scanType: " + scanType.ToString() +
+                ", scanSatPart: " + scanSatPart + ", numAvailable: " + numAvailable;
+        }
+        /// <summary>
+        /// Instantiator
+        /// </summary>
+        /// <param name="part"></param>
+        /// <param name="scanType"></param>
+        public AvailPartWrapper2(AvailablePart part, SCANsatSCANtype scanType = SCANsatSCANtype.Nothing)
+        {
+            NameID = part.name;
+            this.part = part;
+            this.partTitle = GetPartTitle(part.name);
+            numAvailable = 0;
+            if (scanType != SCANsatSCANtype.Nothing)
+            {
+                this.scanType = scanType;
+                scanSatPart = true;
+            }
+        }
+
+        /// <summary>
+        /// Returns part title
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static string GetPartTitle(string name)
+        {
+            if (!string.IsNullOrEmpty(name))
+            {
+                AvailablePart partInfoByName = PartLoader.getPartInfoByName(name.Replace('_', '.'));
+                if (partInfoByName != null && ResearchAndDevelopment.PartModelPurchased(partInfoByName))
+                {
+                    return partInfoByName.title;
+                }
+            }
+
+            return "";
+        }
+    }
+
+    /// <summary>
+    /// Wrapper around an experiment with some needed information
+    /// </summary>
+    public class Experiment
+    {
+        public string ExperimentID { get; set; }
+
+        internal SCANsatSCANtype scanType;
+        internal bool scanSatExperiment = false;
+        internal string experimentTitle;
+        internal Guid contractGuid;
+        public string Name { get; set; }
+
+        public string Log()
+        {
+            return "ExperimentID: " + ExperimentID +
+                   ", scanType: " + scanType +
+                   ", experimentTitle: " + experimentTitle +
+                   ", contractGuid: " + contractGuid +
+                   ", Name: " + Name;
+        }
+        public string ContractExperiment()
+        {
+            return contractGuid.ToString() + "+" + ExperimentID;
+        }
+
+        /// <summary>
+        /// Instantiator
+        /// </summary>
+        /// <param name="tuple"></param>
+        /// <param name="scansatExpID"></param>
+        public Experiment(CEP_Key_Tuple tuple, string scansatExpID = null)
+        {
+            if (scansatExpID == null)
+            {
+                this.ExperimentID = tuple.expID;
+                this.contractGuid = tuple.contractGuid;
+                experimentTitle = getExpTitle(this.ExperimentID);
+            }
+            else
+            {
+                this.ExperimentID = tuple.expID;
+                this.contractGuid = tuple.contractGuid;
+                short a = Convert.ToInt16(scansatExpID);
+
+                experimentTitle = getExpTitle(("SCANsat" + (SCANsatSCANtype)a).ToString());
+                string s;
+                if (tuple.expID.Length >= 9 && tuple.expID.Substring(0, 7) == "SCANsat")
+                    s = tuple.expID.Substring(8);
+                else
+                    s = tuple.expID;
+                scanType = (SCANsatSCANtype)(short.Parse(scansatExpID));
+                scanSatExperiment = true;
+            }
+        }
+
+        /// <summary>
+        /// Returns the title for an experiment
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        private string getExpTitle(string name)
+        {
+            if (name == null)
+                return "";
+            ScienceExperiment se = ResearchAndDevelopment.GetExperiment(name);
+            if (se != null) return se.experimentTitle;
+            return name;
+        }
+    }
+
+    /// <summary>
+    /// Represents a check module with a type, description, and tracks the number available.
+    /// </summary>
+    public class CheckModule
+    {
+        public string ModuleTypes { get; set; }
+        public string Description { get; set; }
+        public int numAvailable { get; set; }  // Field to track the number available
+
+        /// <summary>
+        /// Instantiator for CheckModule.
+        /// Initializes ModuleTypes, Description, and optionally numAvailable.
+        /// </summary>
+        /// <param name="types">The type of the check module.</param>
+        /// <param name="description">The description of the check module.</param>
+        /// <param name="numAvailable">The number available (default is 0).</param>
+        public CheckModule(string types, string description, int numAvailable = 0)
+        {
+            ModuleTypes = types;
+            Description = description;
+            this.numAvailable = numAvailable;
+        }
+
+        /// <summary>
+        /// Updates the numAvailable value.
+        /// </summary>
+        /// <param name="newNumAvailable">The new number available value.</param>
+        public void UpdateNumAvailable(int newNumAvailable)
+        {
+            numAvailable = newNumAvailable;
+        }
+
+        /// <summary>
+        /// Alternate instantiator for CheckModule.
+        /// Initializes ModuleTypes and Description.
+        /// </summary>
+        /// <param name="types">The type of the check module.</param>
+        /// <param name="description">The description of the check module.</param>
+        public CheckModule(string types, string description)
+        {
+            ModuleTypes = types;
+            Description = description;
+        }
+        public string Log()
+        {
+            return "ModuleTypes: " + ModuleTypes +
+                   ", Description: " + Description +
+                   ", numAvailable: " + numAvailable;
+        }
+    }
+
+    /// <summary>
+    /// Represents a filter with a category, a value, and a type.
+    /// </summary>
+    public class Filter
+    {
+        public string category { get; set; }
+        public string value { get; set; }
+        public string type { get; set; }
+
+
+        /// <summary>
+        /// Instantiator for Filter.
+        /// Initializes the category, value, and type properties.
+        /// </summary>
+        /// <param name="category">The filter category.</param>
+        /// <param name="value">The filter value.</param>
+        /// <param name="type">The filter type.</param>
+        public Filter(string category, string value, string type)
+        {
+            RegisterToolbar.Log.Info("Filter, category: " + category + ", value: " + value + ", type: " + type);
+            this.category = category;
+            this.value = value;
+            this.type = type;
+        }
+        public string Log()
+        {
+            return "category: " + category + ", value: " + value + ", type: " + type;
+        }
+    }
+
+    /// <summary>
+    /// Parameter class with additional fields and a KerbalName property
+    /// </summary>
+    public class Param
+    {
+        public string Key { get; set; }
+        public string Value { get; set; }
+
+        public string KerbalName { get; set; }
+        public string scanName { get; set; }                            // SCANsatCoverage
+        public SCANsatSCANtype scanType { get; set; } = SCANsatSCANtype.Nothing;                       // SCANsatCoverage
+        public string experimentType { get; set; }                      // StnSciParameter
+        public string subjectId { get; set; }                           // Deployed science
+        public List<Filter> Filters { get; set; } = new List<Filter>(); // PartValidation
+
+        // RequestedParts and PartNames (strings are formatted: underscores replaced with periods)
+        public List<string> RequestedParts { get; set; } = new List<string>();
+    
+        public List<string> PartNames { get; set; } = new List<string>();
+
+
+        // List of vessel IDs
+        public List<string> Vessels { get; set; } = new List<string>();
+
+        // List of check modules (each with a type and description)
+        public List<CheckModule> CheckModules { get; set; } = new List<CheckModule>();
+
+        // List of module names
+        public List<string> ModuleNames { get; set; } = new List<string>();
+
+
+        /// <summary>
+        /// Instantiator for Param.
+        /// Initializes the Key and Value properties.
+        /// </summary>
+        /// <param name="key">The parameter key.</param>
+        /// <param name="value">The parameter value.</param>
+        public Param(string key, string value)
+        {
+            Key = key;
+            Value = value;
+        }
+
+        /// <summary>
+        /// Adds a single part name to the PartNames list after replacing underscores with periods.
+        /// </summary>
+        /// <param name="value">The part name string to format and add.</param>
+        public void AddPartName(string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                string formattedValue = value.Replace('_', '.');
+                PartNames.Add(formattedValue);
+            }
+        }
+
+        /// <summary>
+        /// Adds a list of part names to the PartNames list (each formatted with underscores replaced by periods).
+        /// </summary>
+        /// <param name="values">The collection of part name strings.</param>
+        public void AddPartNames(IEnumerable<string> values)
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        string formattedValue = value.Replace('_', '.');
+                        PartNames.Add(formattedValue);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds a single requested part to the RequestedParts list after formatting.
+        /// </summary>
+        /// <param name="value">The requested part string to format and add.</param>
+        public void AddRequestedPart(string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                string formattedValue = value.Replace('_', '.');
+                RequestedParts.Add(formattedValue);
+            }
+        }
+
+        /// <summary>
+        /// Adds a list of requested parts to the RequestedParts list (each formatted with underscores replaced by periods).
+        /// </summary>
+        /// <param name="values">The collection of requested part strings.</param>
+        public void AddRequestedParts(IEnumerable<string> values)
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        string formattedValue = value.Replace('_', '.');
+                        RequestedParts.Add(formattedValue);
+                    }
+                }
+            }
+        }
+
+
+        public string Log()
+        {
+            string l = "Key: " + Key + ", Value: " + Value;
+            if (KerbalName != null)
+                l += ", KerbalName: " + KerbalName;
+            if (scanName != null)
+                l += ", scanName: " + scanName;
+            if (scanType != SCANsatSCANtype.Nothing)
+                l += ", scanType: " + scanType;
+            if (experimentType != null)
+                l += ", experimentType: " + experimentType;
+            if (subjectId != null)
+                l += ", subjectId: " + subjectId;
+
+            return l;
+        }
+        public string LogReqParts()
+        {
+            string p = "";
+            foreach (string part in RequestedParts)
+                p += part + ", ";
+            return p;
+        }
+
+        public string LogChkModules()
+        {
+            string s = "";
+            foreach (var c in CheckModules)
+                s += "Type: " + c.ModuleTypes + ", Description: " + c.Description;
+            return s;
+        }
+        public string LogVessels()
+        {
+            string v = "";
+            foreach (var vessels in Vessels)
+                v += vessels + ", ";
+            return v;
+        }
+
+        public string LogModuleNames()
+        {
+            string s = "";
+            foreach (var c in ModuleNames)
+                s += c + ", ";
+            return s;
+        }
+        public string LogPartNames()
+        {
+            string s = "";
+            foreach (var part in PartNames)
+                s += part + ", ";
+            return s;
+        }
+
+        /// <summary>
+        /// Adds a Filter to the Filters list.
+        /// </summary>
+        /// <param name="filter">The Filter to add.</param>
+        public void AddFilter(Filter filter)
+        {
+            if (filter != null)
+            {
+                Filters.Add(filter);
+            }
+        }
+
+        /// <summary>
+        /// Removes a Filter from the Filters list.
+        /// </summary>
+        /// <param name="filter">The Filter to remove.</param>
+        /// <returns>True if the filter was removed, otherwise false.</returns>
+        public bool RemoveFilter(Filter filter)
+        {
+            return Filters.Remove(filter);
+        }
+
+        /// <summary>
+        /// Retrieves all filters matching a given category.
+        /// </summary>
+        /// <param name="category">The category to search for.</param>
+        /// <returns>A list of Filters that match the category.</returns>
+        public List<Filter> GetFiltersByCategory(string category)
+        {
+            return Filters.Where(f => f.category == category).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Represents a wrapper for a part group, containing the part group key and the number available.
+    /// </summary>
+    public class PartGroupWrapper
+    {
+        public string partGroupKey { get; set; }
+        public int numAvailable { get; set; } = 0;
+
+        /// <summary>
+        /// Instantiator for PartGroupWrapper.
+        /// </summary>
+        /// <param name="partGroupKey">The key identifying the part group.</param>
+        /// <param name="numAvailable">The number of parts available in the group (default is 0).</param>
+        public PartGroupWrapper(string partGroupKey, int numAvailable = 0)
+        {
+            this.partGroupKey = partGroupKey;
+            this.numAvailable = numAvailable;
+        }
+
+        /// <summary>
+        /// Returns a formatted log line for this PartGroupWrapper.
+        /// </summary>
+        public string Log()
+        {
+            return "partGroupKey: " + partGroupKey + ", numAvailable: " + numAvailable;
+        }
+    }
+
+    /// <summary>
+    /// Wrapper around a contract with some needed information
+    /// </summary>
+    public class ContractWrapper
+    {
+        public Guid Id { get; set; }
+        public string SortOrder { get; set; } // Field to determine sorting order
+
+        internal string contractType; // New internal field for contract contractType
+
+        internal bool selected;
+        internal bool active;
+
+        internal contractContainer contractContainer;
+
+        // Groups of experiments assigned to the contract
+        public Dictionary<string, List<Experiment>> ExperimentGroups { get; set; } = new Dictionary<string, List<Experiment>>(); // Groups of experiments
+
+        // List of part group keys assigned to the contract
+        public Dictionary<string, PartGroupWrapper> PartGroups { get; set; } = new Dictionary<string, PartGroupWrapper>();
+
+        // List of parameters for the contract
+        public List<Param> Params { get; set; } = new List<Param>();
+
+
+        /// <summary>
+        /// Instantiator
+        /// </summary>
+        /// <param name="cc"></param>
+        internal ContractWrapper(contractContainer cc, Guid id, string sortOrder, string contractType)
+        {
+            //RegisterToolbar.Log.Info("ContractWrapper, guid: " + id + ", contractType: " +  contractType);
+            this.Id = cc.ID;
+            selected = false;
+            active = true;
+            contractContainer = cc;
+            SortOrder = sortOrder;
+            this.contractType = contractType;
+        }
+
+        /// <summary>
+        /// Adds a single parameter to the contract.
+        /// </summary>
+        /// <param name="param">The parameter to add.</param>
+        public void AddParam(Param param)
+        {
+            Params.Add(param);
+        }
+
+
+        /// <summary>
+        /// Adds a PartGroupWrapper to the contract.
+        /// </summary>
+        /// <param name="partGroupKey">The key of the part group to add.</param>
+        /// <param name="numAvailable">The number available (optional, default is 0).</param>
+        public void AddPartGroup(string partGroupKey, int numAvailable = 0)
+        {
+            if (PartGroups.ContainsKey(partGroupKey))
+            {
+                throw new Exception("This part group has already been added to the contract.");
+            }
+            PartGroups[partGroupKey] = new PartGroupWrapper(partGroupKey, numAvailable);
+        }
+
+        /// <summary>
+        /// Updates the numAvailable field in the specified PartGroupWrapper.
+        /// </summary>
+        /// <param name="partGroupKey">The key of the part group to update.</param>
+        /// <param name="newNumAvailable">The new number available value.</param>
+        public void UpdatePartGroupAvailability(string partGroupKey, int newNumAvailable)
+        {
+            if (!PartGroups.ContainsKey(partGroupKey))
+            {
+                throw new Exception("Part group not found in the contract.");
+            }
+            PartGroups[partGroupKey].numAvailable = newNumAvailable;
+        }
+
+        /// <summary>
+        /// Returns the numAvailable value from a specified part group.
+        /// </summary>
+        /// <param name="partGroupKey">The key of the part group.</param>
+        /// <returns>The number available in the part group.</returns>
+        public int GetPartGroupAvailability(string partGroupKey)
+        {
+            if (!PartGroups.TryGetValue(partGroupKey, out var partGroup))
+            {
+                throw new Exception("Part group not found in the contract.");
+            }
+            return partGroup.numAvailable;
+        }
+
+
+        /// <summary>
+        /// Returns a formatted log line for this ContractWrapper.
+        /// </summary>
+        public string Log()
+        {
+            //string experimentGroupsLog = string.Join(" | ", ExperimentGroups.Select(kvp =>
+            //    "GroupKey: " + kvp.Key + " -> [" + string.Join(", ", kvp.Value.Select(exp => exp.Log())) + "]"));
+            //string partGroupsLog = string.Join(" | ", PartGroups.Select(kvp => kvp.Value.Log()));
+            //string paramsLog = string.Join(" | ", Params.Select(p => p.Log()));
+
+            return "Id: " + Id +
+                   ", SortOrder: " + SortOrder +
+                   ", contractType: " + contractType;
+            // ", ExperimentGroups: {" + experimentGroupsLog + "}" +
+            // ", PartGroups: {" + partGroupsLog + "}" +
+            // ", Params: {" + paramsLog + "}";
+        }
+    }
+
+    /// <summary>
+    /// Represents ship part modules with dictionaries for parts, modules, and module types.
+    /// </summary>
+    public class ShipPartModules
+    {
+        // Dictionaries storing the formatted value as both key and value.
+        public Dictionary<string, string> parts { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, string> modules { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, string> moduleTypes { get; set; } = new Dictionary<string, string>();
+
+        /// <summary>
+        /// Reinitializes all dictionaries to new empty dictionaries.
+        /// </summary>
+        public void Reinitialize()
+        {
+            parts = new Dictionary<string, string>();
+            modules = new Dictionary<string, string>();
+            moduleTypes = new Dictionary<string, string>();
+        }
+
+        /// <summary>
+        /// Adds a part value to the parts dictionary after replacing underscores with periods.
+        /// </summary>
+        /// <param name="value">The part string value.</param>
+        public void AddPart(string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                string formattedValue = value.Replace('_', '.');
+                if (!parts.ContainsKey(formattedValue))
+                {
+                    parts.Add(formattedValue, formattedValue);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds a module value to the modules dictionary after replacing underscores with periods.
+        /// </summary>
+        /// <param name="value">The module string value.</param>
+        public void AddModule(string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                string formattedValue = value.Replace('_', '.');
+                if (!modules.ContainsKey(formattedValue))
+                {
+                    modules.Add(formattedValue, formattedValue);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds a module type value to the moduleTypes dictionary after replacing underscores with periods.
+        /// </summary>
+        /// <param name="value">The module type string value.</param>
+        public void AddModuleType(string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                string formattedValue = value.Replace('_', '.');
+                if (!moduleTypes.ContainsKey(formattedValue))
+                {
+                    moduleTypes.Add(formattedValue, formattedValue);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Checks if a part value exists in the parts dictionary.
+        /// </summary>
+        /// <param name="value">The part string value to check.</param>
+        /// <returns>True if the formatted part value exists; otherwise, false.</returns>
+        public bool ContainsPart(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return false;
+            string formattedValue = value.Replace('_', '.');
+            return parts.ContainsKey(formattedValue);
+        }
+
+        /// <summary>
+        /// Checks if a module value exists in the modules dictionary.
+        /// </summary>
+        /// <param name="value">The module string value to check.</param>
+        /// <returns>True if the formatted module value exists; otherwise, false.</returns>
+        public bool ContainsModule(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return false;
+            string formattedValue = value.Replace('_', '.');
+            return modules.ContainsKey(formattedValue);
+        }
+
+        /// <summary>
+        /// Checks if a module type value exists in the moduleTypes dictionary.
+        /// </summary>
+        /// <param name="value">The module type string value to check.</param>
+        /// <returns>True if the formatted module type exists; otherwise, false.</returns>
+        public bool ContainsModuleType(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return false;
+            string formattedValue = value.Replace('_', '.');
+            return moduleTypes.ContainsKey(formattedValue);
+        }
+
+        /// <summary>
+        /// Returns a formatted log line for ShipPartModules.
+        /// </summary>
+        public string Log()
+        {
+            string partsLog = string.Join(", ", parts.Values);
+            string modulesLog = string.Join(", ", modules.Values);
+            string moduleTypesLog = string.Join(", ", moduleTypes.Values);
+            return "Parts: [" + partsLog + "], Modules: [" + modulesLog + "], ModuleTypes: [" + moduleTypesLog + "]";
+        }
+    }
+
+    /// <summary>
+    /// The Repository class serves as a centralized manager for contracts, part groups, experiments, and parameters, 
+    /// providing methods to add, assign, and retrieve this interrelated data.
+    /// </summary>
+    public class Repository
+    {
+        public Dictionary<string, List<AvailPartWrapper2>> PartGroupsNeeded { get; set; } = new Dictionary<string, List<AvailPartWrapper2>>(); // Dictionary of part groups
+        public Dictionary<Guid, ContractWrapper> Contracts { get; set; } = new Dictionary<Guid, ContractWrapper>(); // Dictionary of contracts with Guid as key
+        public ShipPartModules shipInfo { get; set; } = new ShipPartModules();
+
+
+
+        // Add a new contract
+        public void AddContract(ContractWrapper contract)
+        {
+            if (Contracts.ContainsKey(contract.Id))
+                throw new Exception("A contract with the same ID already exists.");
+            Contracts[contract.Id] = contract;
+        }
+
+        /// <summary>
+        /// Add a group of experiments to a contract
+        /// </summary>
+        /// <param name="contractId"></param>
+        /// <param name="groupKey"></param>
+        /// <param name="experiments"></param>
+        /// <exception cref="Exception"></exception>
+        public void AddExperimentGroupToContract(Guid contractId, string groupKey, IEnumerable<Experiment> experiments)
+        {
+            if (!Contracts.TryGetValue(contractId, out var contract))
+                throw new Exception("Contract not found.");
+
+            if (contract.ExperimentGroups.ContainsKey(groupKey))
+                throw new Exception($"An experiment group with the key '{groupKey}' already exists.");
+
+            contract.ExperimentGroups[groupKey] = experiments.ToList();
+        }
+
+        /// <summary>
+        /// Add a single experiment to a contract (adds to an existing group or creates a new one)
+        /// </summary>
+        /// <param name="contractId"></param>
+        /// <param name="groupKey"></param>
+        /// <param name="experiment"></param>
+        /// <exception cref="Exception"></exception>
+        public void AddExperimentToContract(Guid contractId, string groupKey, Experiment experiment)
+        {
+            if (!Contracts.TryGetValue(contractId, out var contract))
+                throw new Exception("Contract not found.");
+
+            if (!contract.ExperimentGroups.ContainsKey(groupKey))
+            {
+                contract.ExperimentGroups[groupKey] = new List<Experiment>();
+            }
+
+            contract.ExperimentGroups[groupKey].Add(experiment);
+        }
+
+
+        /// <summary>
+        /// Add a group of parts to the repository
+        /// </summary>
+        /// <param name="groupKey"></param>
+        /// <param name="parts"></param>
+        /// <exception cref="Exception"></exception>
+        public void AddNeededParts(string groupKey, IEnumerable<AvailPartWrapper2> parts)
+        {
+            if (PartGroupsNeeded.ContainsKey(groupKey))
+                throw new Exception($"A part group with the key '{groupKey}' already exists.");
+
+            PartGroupsNeeded[groupKey] = parts.ToList();
+        }
+
+        /// <summary>
+        /// Add a single part (creates a group with one part)
+        /// </summary>
+        /// <param name="groupKey"></param>
+        /// <param name="part"></param>
+        public void AddNeededPart(int from, string groupKey, AvailPartWrapper2 part)
+        {
+            if (part.NameID == null)
+            {
+                RegisterToolbar.Log.Info("AddPart, part.nameID is null");
+                return;
+            }
+            RegisterToolbar.Log.Info("AddPart, from: " + from + ", nameID: " + part.NameID);
+            AddNeededParts(groupKey, new List<AvailPartWrapper2> { part });
+        }
+
+        /// <summary>
+        /// Assign a single experiment to a part
+        /// </summary>
+        /// <param name="partGroupKey"></param>
+        /// <param name="partNameID"></param>
+        /// <param name="experimentID"></param>
+        /// <exception cref="Exception"></exception>
+        public void AssignExperimentToPart(string partGroupKey, string partNameID, string experimentID)
+        {
+            if (!PartGroupsNeeded.TryGetValue(partGroupKey, out var partGroup))
+                throw new Exception("Part group not found.");
+
+            var part = partGroup.FirstOrDefault(p => p.NameID == partNameID);
+            if (part == null)
+                throw new Exception("Part not found in the specified group.");
+
+            if (!part.Experiments.Contains(experimentID))
+            {
+                part.Experiments.Add(experimentID);
+            }
+        }
+
+        /// <summary>
+        /// Assign a list of experiments to a part
+        /// </summary>
+        /// <param name="partGroupKey"></param>
+        /// <param name="partNameID"></param>
+        /// <param name="experimentIDs"></param>
+        /// <exception cref="Exception"></exception>
+        public void AssignExperimentsToPart(string partGroupKey, string partNameID, IEnumerable<string> experimentIDs)
+        {
+            if (!PartGroupsNeeded.TryGetValue(partGroupKey, out var partGroup))
+                throw new Exception("Part group not found.");
+
+            var part = partGroup.FirstOrDefault(p => p.NameID == partNameID);
+            if (part == null)
+                throw new Exception("Part not found in the specified group.");
+
+            foreach (var experimentID in experimentIDs)
+            {
+                if (!part.Experiments.Contains(experimentID))
+                {
+                    part.Experiments.Add(experimentID);
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// Adds a group of parts (by its key) to a contract.
+        /// </summary>
+        public void AddPartGroupToContract(Guid contractId, string partGroupKey)
+        {
+            if (!Contracts.TryGetValue(contractId, out var contract))
+                throw new Exception("Contract not found.");
+            if (!PartGroupsNeeded.ContainsKey(partGroupKey))
+                throw new Exception("Part group not found in the repository.");
+            if (contract.PartGroups.ContainsKey(partGroupKey))
+                throw new Exception("This part group has already been added to the contract.");
+
+            // Create and add a new PartGroupWrapper
+            contract.PartGroups[partGroupKey] = new PartGroupWrapper(partGroupKey);
+        }
+
+        /// <summary>
+        /// Retrieve all parts assigned to a contract via part groups
+        /// </summary>
+        /// <param name="contractId"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+
+        public List<AvailPartWrapper2> GetPartsForContractFromPartGroups(Guid contractId)
+        {
+            if (!Contracts.TryGetValue(contractId, out var contract))
+                throw new Exception("Contract not found.");
+            var parts = new List<AvailPartWrapper2>();
+            foreach (var partGroupKey in contract.PartGroups.Keys)
+            {
+                if (PartGroupsNeeded.TryGetValue(partGroupKey, out var group))
+                    parts.AddRange(group);
+                else
+                    throw new Exception($"Part group '{partGroupKey}' not found in repository.");
+            }
+            return parts;
+        }
+
+        /// <summary>
+        /// Get all parts for a contract
+        /// </summary>
+        /// <param name="contractId"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public List<AvailPartWrapper2> GetPartsForContract(Guid contractId)
+        {
+            if (!Contracts.TryGetValue(contractId, out var contract))
+                throw new Exception("Contract not found");
+            var experimentIDs = contract.ExperimentGroups.Values
+                .SelectMany(group => group.Select(e => e.ExperimentID))
+                .ToHashSet();
+            return PartGroupsNeeded.Values
+                .SelectMany(group => group)
+                .Where(p => p.Experiments.Any(expID => experimentIDs.Contains(expID)))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Get parts for a specific experiment in a contract
+        /// </summary>
+        /// <param name="contractId"></param>
+        /// <param name="experimentId"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public List<AvailPartWrapper2> GetPartsForExperimentInContract(Guid contractId, string experimentID)
+        {
+            if (!Contracts.TryGetValue(contractId, out var contract))
+                throw new Exception("Contract not found.");
+
+            if (!contract.ExperimentGroups.Values.SelectMany(group => group).Any(e => e.ExperimentID == experimentID))
+                throw new Exception("Experiment not found in the specified contract.");
+
+            return PartGroupsNeeded.Values
+                .SelectMany(group => group)
+                .Where(p => p.Experiments.Contains(experimentID))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Get list of experiments in a contract
+        /// </summary>
+        /// <param name="contractId"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public List<Experiment> GetExperimentsInContract(Guid contractId)
+        {
+            if (!Contracts.TryGetValue(contractId, out var contract))
+                throw new Exception("Contract not found.");
+
+            return contract.ExperimentGroups.Values.SelectMany(group => group).ToList();
+        }
+
+        /// <summary>
+        /// Get sorted list of all contracts
+        /// </summary>
+        /// <returns></returns>
+        public List<ContractWrapper> GetContracts(bool sorted = false)
+        {
+            if (sorted)
+                return Contracts.Values
+                    .OrderBy(c => c.SortOrder, StringComparer.Ordinal)
+                    .ThenBy(c => c.Id)
+                       .ToList();
+            else
+                return Contracts.Values.ToList();
+        }
+        public string Log()
+        {
+            string partGroupsLog = string.Join(" | ", PartGroupsNeeded.Select(pg =>
+                "GroupKey: " + pg.Key + " -> [" + string.Join(", ", pg.Value.Select(p => p.Log())) + "]"));
+            string contractsLog = string.Join(" | ", Contracts.Select(c => c.Value.Log()));
+            return "Repository:" +
+                   "\nPartGroupsNeeded: {" + partGroupsLog + "}" +
+                   "\nContracts: {" + contractsLog + "}" +
+                   "\nShip Info: " + shipInfo.Log();
+        }
+    }
+}

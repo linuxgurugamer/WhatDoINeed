@@ -1,70 +1,60 @@
-﻿#define SCANSAT
-
-
+﻿using ClickThroughFix;
+using ContractParser;
+using KSP.UI.Screens;
+using SpaceTuxUtility;
 using System;
 using System.Collections.Generic;
-using UnityEngine;
-using KSP.UI.Screens;
-using ClickThroughFix;
-using ToolbarControl_NS;
-using SpaceTuxUtility;
-using ContractParser;
 using System.Linq;
-
+using ToolbarControl_NS;
+using UnityEngine;
 using static WhatDoINeed.RegisterToolbar;
-using Contracts.Predicates;
-using System.Security.Cryptography;
-using static KSP.UI.UIRectScaler;
-using System.Runtime.InteropServices;
-
+using static WhatDoINeed.Utility;
 
 namespace WhatDoINeed
 {
     [KSPAddon(KSPAddon.Startup.EditorAny, false)]
-    public class WhatDoINeed : MonoBehaviour
+    public partial class WhatDoINeed : MonoBehaviour
     {
         private static ToolbarControl toolbarControl;
         //internal static ToolbarControl Toolbar { get { return toolbarControl; } }
 
+        internal static WhatDoINeed Instance;
         bool hide = false;
         void OnHideUI() { hide = true; }
         void OnShowUI() { hide = false; }
         bool Hide { get { return hide; } }
 
         bool visible = false;
-        bool selectVisible = false;
-        bool settingsVisible = false;
+
+        bool IsVisible { get { return visible; } }
+
+
+        //bool selectVisible = false;
         int winId, selWinId, manualContractWinId;
-        double quickHideEnd = 0;
-
-        public const float SEL_WINDOW_WIDTH = 400;
-        public const float SEL_WINDOW_HEIGHT = 300;
-
-        public const float WIN_WIDTH = 400;
-        public const float WIN_HEIGHT = 600;
+        public static double quickHideEnd = 0;
 
         internal const string MODID = "WhatDoINeed";
         internal const string MODNAME = "What Do I Need?";
 
-        Rect selWinPos = new Rect(Screen.width / 2 - SEL_WINDOW_WIDTH / 2, Screen.height / 2 - SEL_WINDOW_HEIGHT / 2, SEL_WINDOW_WIDTH, SEL_WINDOW_HEIGHT);
-
-        int numDisplayedContracts = 0;
-        string contractText = "Contracts";
-
         bool resizingWindow = false;
+        public bool resizingSelWindow = false;
 
-        Vector2 scrollPos;
+        //Vector2 scrollPos;
 
         bool kisAvailable = false;
         bool scansatAvailable = false;
 
-        //const string htmlRed = "<color=#ff0000>";
-        const string htmlRed = "<color=#fff12a>";  // Light yellow (copied from colors found in Mission Control)
-        //const string htmlGreen = "<color=#00ff00>";
-        const string htmlGreen = "<color=#8cf893>"; // Light green (copied from colors found in Mission Control)
-        const string htmlPaleblue = "<color=#acfcff>";
-        int btnId;
 
+        internal int btnId;
+
+        internal bool winOpen { get { return visible; } }
+        // public Repository repository;
+
+
+        AvailablePart GetPartByIndex(string index)
+        {
+            return IsPartAvailable(index, true);
+        }
 
 
         public void Start()
@@ -74,31 +64,28 @@ namespace WhatDoINeed
                 Log.Info("Sandbox mode, exiting");
                 return;
             }
-            //kisAvailable = HasMod.hasMod("KIS");
-#if SCANSAT
+
+            Instance = this;
             scansatAvailable = HasMod.hasMod("SCANsat");
-#endif
             kisAvailable = KISWrapper.Initialize();
 
             lastAlpha = -1;
             Settings.Instance.LoadData();
 
+            Repository.Contracts.Clear();
             ScanContracts();
             SetUpExperimentParts();
-#if SCANSAT
             if (scansatAvailable)
                 SetupSCANsatStrings();
-#endif
+            InitializePartsAvailability();
+            InitializeModuleTitles();
+
             GameEvents.onHideUI.Add(OnHideUI);
             GameEvents.onShowUI.Add(OnShowUI);
-
-
-            GameEvents.onEditorPodSelected.Add(EditorSelectedPickedDeleted);
-            GameEvents.onEditorPodPicked.Add(EditorSelectedPickedDeleted);
-            GameEvents.onEditorPodDeleted.Add(onEditorPodDeleted);
-            GameEvents.onEditorPartEvent.Add(onEditorPartEvent);
-
+            GameEvents.onEditorShipModified.Add(onEditorShipModified);
             GameEvents.onGameSceneLoadRequested.Add(onGameSceneLoadRequested);
+
+            EditorLogic.fetch.newBtn.onClick.AddListener(() => { ScanShip(); });
 
             winId = WindowHelper.NextWindowId("WhatDoINeed");
             selWinId = WindowHelper.NextWindowId("CCD_Select");
@@ -107,7 +94,7 @@ namespace WhatDoINeed
             if (toolbarControl == null)
             {
                 toolbarControl = gameObject.AddComponent<ToolbarControl>();
-                toolbarControl.AddToAllToolbars(GUIToggle, GUIToggle,
+                toolbarControl.AddToAllToolbars(GUIToolbarToggle, GUIToolbarToggle,
                      ApplicationLauncher.AppScenes.SPH | ApplicationLauncher.AppScenes.VAB | ApplicationLauncher.AppScenes.TRACKSTATION | ApplicationLauncher.AppScenes.FLIGHT | ApplicationLauncher.AppScenes.SPACECENTER | ApplicationLauncher.AppScenes.MAPVIEW,
                      MODID,
                      "CCD_Btn",
@@ -119,18 +106,35 @@ namespace WhatDoINeed
             ButtonManager.BtnManager.InitializeListener(EditorLogic.fetch.launchBtn, EditorLogic.fetch.launchVessel, "What Do I Need?");
             btnId = ButtonManager.BtnManager.AddListener(EditorLogic.fetch.launchBtn, OnLaunchButtonInput, "What Do I Need?", "What Do I Need?");
 
-            SetWinPos();
+            Utility.SetWinPos(ref Settings.Instance.winPos, Settings.Instance.winPos.width, Settings.Instance.winPos.height);
+
             if (!Settings.Instance.helpWindowShown)
             {
                 ShowHelpWindow();
                 Settings.Instance.helpWindowShown = true;
                 Settings.Instance.SaveData();
             }
+            CheckVisibleStatus();
+        }
+
+        void CheckVisibleStatus()
+        {
             if (Settings.Instance.reopenIfLastOpen)
             {
                 //toolbarControl.buttonActive =
-                visible = Settings.Instance.lastVisibleStatus;
+                Log.Info("reopenIfLastOpen: " + Settings.Instance.reopenIfLastOpen + ", lastVisibleStatus: " + Settings.Instance.lastContractWindowVisibleStatus +
+", SettingsWindow: " + Settings.Instance.lastSettingsWindowVisibleStatus + ", SelectWindow: " + Settings.Instance.lastSelectWindowVisibleStatus +
+", Parts Window: " + Settings.Instance.lastPartsWindowVisibleStatus);
+                visible = Settings.Instance.lastContractWindowVisibleStatus;
+
+                if (Settings.Instance.lastSettingsWindowVisibleStatus)
+                    SettingsWindow.GetInstance();
+                if (Settings.Instance.lastSelectWindowVisibleStatus)
+                    SelectWindow.GetInstance();
+                if (Settings.Instance.lastPartsWindowVisibleStatus)
+                    NeededPartsWindow.GetInstance();
             }
+
         }
 
         internal class SCANsatDefs
@@ -174,161 +178,111 @@ namespace WhatDoINeed
         {
             GameEvents.onHideUI.Remove(OnHideUI);
             GameEvents.onShowUI.Remove(OnShowUI);
-
-            GameEvents.onEditorPartEvent.Remove(onEditorPartEvent);
-            GameEvents.onEditorPodSelected.Remove(EditorSelectedPickedDeleted);
-            GameEvents.onEditorPodPicked.Remove(EditorSelectedPickedDeleted);
-            GameEvents.onEditorPodDeleted.Remove(onEditorPodDeleted);
+            GameEvents.onEditorShipModified.Remove(onEditorShipModified);
 
             GameEvents.onGameSceneLoadRequested.Remove(onGameSceneLoadRequested);
         }
 
-        const int WIDTH = 300;
-        const int HEIGHT = 200;
 
-        public void OnLaunchButtonInput()
+        void onEditorShipModified(ShipConstruct sc)
         {
-            if (Settings.Instance.checkForMissingBeforeLaunch)
-            {
-                int numSelectedcontracts = 0;
-                int numMissingExperiments = 0;
-                foreach (var contract in Settings.Instance.activeContracts)
-                {
-                    if (contract.Value.selected || !Settings.Instance.onlyCheckSelectedContracts)
-                    {
-                        numSelectedcontracts++;
-                        foreach (var expPart in experimentParts.Values)
-                        {
-                            if (expPart.contractGuid == contract.Value.contractContainer.ID)
-                            {
-                                if (expPart.parts.Count != 0)
-                                {
-                                    bool partFound = false;
-                                    for (int i = 0; i < expPart.parts.Count; i++)
-                                    {
-                                        var part = expPart.parts[i];
-                                        if (part.part.category != PartCategories.none && part.partTitle != "")
-                                        {
-                                            if (part.numAvailable > 0)
-                                            {
-                                                partFound = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (!partFound)
-                                        numMissingExperiments++;
-                                }
-                            }
-                        }
-                    }
-                }
-                if (numMissingExperiments > 0)
-                {
-                    // You have active contracts that requires some parts that your vessel currently does not have.Are you sure you want to launch?
-#if true
-                    PopupDialog.SpawnPopupDialog(new Vector2(0.5f, 0.5f),
-                       new Vector2(0.5f, 0.5f),
-                       new MultiOptionDialog("Fill It Up",
-                           "You have active contracts that requires some parts\n" +
-                           "that your vessel currently does not have.\n\n" +
-                           "There " + ((numSelectedcontracts == 1) ? "is " : "are ") + numSelectedcontracts + " selected contract" + ((numSelectedcontracts == 1) ? "\n" : "s\n") +
-                           htmlRed + "There " + ((numMissingExperiments == 1) ? "is " : "are ") + numMissingExperiments + " missing experiment" + ((numMissingExperiments == 1) ? "\n\n" : "s\n\n") + "</color>" +
-                           "Are you sure you want to launch?\n\n" +
-                           "Please select your option from the choices below",
-                           "Unfullfillable Contracts",
-                           HighLogic.UISkin,
-                           new Rect(0.5f, 0.5f, WIDTH, HEIGHT),
-                           new DialogGUIFlexibleSpace(),
-                           new DialogGUIVerticalLayout(
-                               new DialogGUIFlexibleSpace(),
-
-                               new DialogGUIHorizontalLayout(
-                                   new DialogGUIFlexibleSpace(),
-                                   new DialogGUIButton("OK to launch",
-                                       delegate
-                                       {
-                                           //ResetDelegates();
-                                           Log.Info("OnLaunchButtonInput 1");
-                                           //defaultLaunchDelegate();
-                                           ButtonManager.BtnManager.InvokeNextDelegate(btnId, "What-Do-I-Need-next");
-
-                                       }, 240.0f, 30.0f, true),
-                                    new DialogGUIFlexibleSpace()
-                                ),
-
-                                new DialogGUIFlexibleSpace(),
-
-                                new DialogGUIHorizontalLayout(
-                                   new DialogGUIFlexibleSpace(),
-                                   new DialogGUIButton("Cancel", () => { }, 240.0f, 30.0f, true),
-                                   new DialogGUIFlexibleSpace()
-                                   )
-                               )
-                           ),
-                            false,
-                            HighLogic.UISkin);
-                }
-                else
-                {
-                    Log.Info("OnLaunchButtonInput 4");
-                    ButtonManager.BtnManager.InvokeNextDelegate(btnId, "What-Do-I-Need-next");
-#endif
-                }
-            }
-            else
-            {
-                Log.Info("OnLaunchButtonInput 3");
-                ButtonManager.BtnManager.InvokeNextDelegate(btnId, "What-Do-I-Need-next");
-            }
+            ScanShip();
         }
 
         void onGameSceneLoadRequested(GameScenes scene)
         {
-            visible = false;
-        }
-        void EditorSelectedPickedDeleted(Part p)
-        {
-            ScanShip();
-        }
-        void onEditorPodDeleted()
-        {
-            ScanShip();
+            if (scene == GameScenes.EDITOR)
+                CheckVisibleStatus();
+            else
+                visible = false;
         }
 
+        int lastNumParts = -1;
         void Update()
         {
-            if (Input.GetMouseButtonUp(0) || Input.GetMouseButtonUp(1) || Input.GetMouseButtonUp(2))
+            if (Input.GetMouseButtonUp(0) || Input.GetMouseButtonUp(1) || Input.GetMouseButtonUp(2) || lastNumParts != EditorLogic.fetch.ship.Count)
             {
-                Log.Info("Update, Input.GetMouseButtonUp(0)");
+                //Log.Info("Update, Input.GetMouseButtonUp(0)");
                 ScanShip();
+                lastNumParts = EditorLogic.fetch.ship.Count;
             }
+
         }
-        void onEditorPartEvent(ConstructionEventType constrE, Part part)
+        void FixedUpdate()
         {
-            ScanShip();
+            if (FadeStatus != Fade.none && fadeStatus != Fade.faded)
+                DoFade();
+            else
+                if (Time.realtimeSinceStartup > quickHideEnd && FadeStatus != Fade.none)
+                FadeStatus = Fade.increasing;
+
+        }
+
+        /// <summary>
+        /// Examines a part looking to classify it for future use
+        /// </summary>
+        /// <param name="part"></param>
+        void ScanPart(Part part)
+        {
+
+            repository.shipInfo.AddPart(part.name);
+
+#if false
+            if (part.isAntenna(out ModuleDeployableAntenna antenna))
+                repository.shipInfo.AddModuleType("Antenna");
+            if (part.name.ToLower().Contains("battery"))
+                repository.shipInfo.AddModuleType("Battery");
+            if (part.dockingPorts.Count > 0)
+                repository.shipInfo.AddModuleType("Dock");
+#endif
+
+            if (part.HasValidContractObjective("Antenna"))
+                repository.shipInfo.AddModuleType("Antenna");
+            if (part.HasValidContractObjective("Generator"))
+                repository.shipInfo.AddModuleType("Generator");
+            if (part.HasValidContractObjective("Grapple"))
+                repository.shipInfo.AddModuleType("Grapple");
+            if (part.HasValidContractObjective("Wheel"))
+                repository.shipInfo.AddModuleType("Wheel");
+            if (part.HasValidContractObjective("Laboratory"))
+                repository.shipInfo.AddModuleType("Laboratory");
+            if (part.HasValidContractObjective("Harvester"))
+                repository.shipInfo.AddModuleType("Harvester");
+            if (part.HasValidContractObjective("Greenhouse"))
+                repository.shipInfo.AddModuleType("Greenhouse");
+
+            // zzz
+
+            for (int i1 = 0; i1 < part.Modules.Count; i1++)
+            {
+                var module = part.Modules[i1];
+                if (module == null)
+                {
+                    continue;
+                }
+                repository.shipInfo.AddModule(module.moduleName);
+
+                if (module is ModuleAlternator || module is ModuleDeployableSolarPanel)
+                    repository.shipInfo.AddModuleType("Generator");
+                if (module is ModuleGrappleNode)
+                    repository.shipInfo.AddModuleType("Grapple");
+                if (module is ModuleWheelBase || module.name == "KSPWheelBase")
+                    repository.shipInfo.AddModuleType("Wheel");
+
+                // To determine ModuleType:
+                //Antenna     Check for AntennaType, should be RELAY or TRANSMIT
+                //Battery     Has "battery" in name
+                //Dock        has ModuleDockingNode
+                //Generator   has ModuleAlternator or ModuleDeployableSolarPanel
+                //Grapple     has ModuleGrappleNode
+                //Wheel       has ModuleWheelBase or KSPWheelBase
+
+
+            }
         }
 
         void ScanShip()
         {
-            Log.Info("ScanShip");
-            // First set all experiments to false, then scan
-            // the vessel's parts
-            if (experimentParts == null)
-            {
-                Log.Error("ScanShip: experimentParts is null");
-                return;
-            }
-            foreach (var ep in experimentParts)
-            {
-                ep.Value.numExpAvail = 0;
-
-                for (int i = 0; i < ep.Value.parts.Count; i++)
-                {
-                    var p = ep.Value.parts[i];
-                    p.numAvailable = 0;
-                }
-            }
             if (EditorLogic.fetch == null)
             {
                 Log.Error("ScanShip, EditorLogic.fetch is null");
@@ -339,25 +293,28 @@ namespace WhatDoINeed
                 Log.Error("ScanShip, EditorLogic.fetch.ship is null");
                 return;
             }
+
+            repository.shipInfo.Reinitialize();
+            Repository.ClearNumAvailable();
+            experimentStatus.Clear();
+
+            Log.Info("ScanShip");
+            for (int i = 0; i < EditorLogic.fetch.ship.parts.Count; i++)
+            {
+                Part part = EditorLogic.fetch.ship.parts[i];
+                if (part != null)
+                {
+                    ScanPart(part);
+                    SetPartOnShip(part);
+                }
+            }
+
             for (int i = 0; i < EditorLogic.fetch.ship.parts.Count; i++)
             {
                 var p = EditorLogic.fetch.ship.parts[i];
                 if (p == null)
                 {
                     continue;
-                }
-                foreach (var ep in experimentParts)
-                {
-                    for (int j = 0; j < ep.Value.parts.Count - 1; j++)
-                    {
-                        var ap = ep.Value.parts[j];
-                        if (p.name == ap.part.name)
-                        {
-                            ep.Value.numExpAvail++;
-                            ap.numAvailable++;
-                            //Log.Info("ScanShip, found part: " + p.name);
-                        }
-                    }
                 }
                 if (p.Modules == null)
                 {
@@ -378,19 +335,9 @@ namespace WhatDoINeed
                         }
                         foreach (StoredPart storedPart in ((ModuleInventoryPart)module).storedParts.Values)
                         {
-                            foreach (var ep in experimentParts)
-                            {
-                                for (int i2 = 0; i2 < ep.Value.parts.Count; i2++)
-                                {
-                                    var ap = ep.Value.parts[i2];
-                                    if (ap.part.name == storedPart.partName)
-                                    {
-                                        ep.Value.numExpAvail++;
-                                        ap.numAvailable++;
-                                        //Log.Info("ScanShip, found part: " + p.name);
-                                    }
-                                }
-                            }
+                            AvailablePart spart = PartLoader.getPartInfoByName(storedPart.partName);
+                            ScanPart(spart.partPrefab);
+                            SetPartOnShip(spart.partPrefab);
                         }
                     }
                 }
@@ -400,63 +347,116 @@ namespace WhatDoINeed
             // Scan all parts stored in Kerbal Inventory System inventories
             if (kisAvailable)
                 ScanShipKISInventory();
-#if DEBUG
-            DumpAllScannedData();
+
+            PreprocessContracts(4);
+
+#if !DEBUG
+            if (Settings.Instance.debugMode)
 #endif
+            DumpAllScannedData();
         }
 
         void DumpAllScannedData()
         {
             Log.Info("======================================================================");
             Log.Info("======================================================================");
-
-            Log.Info("=====================================");
-            Log.Info("Data Dump, contracts with all experiments listed");
-            Log.Info("=====================================");
-            foreach (var contract in Settings.Instance.activeContracts)
+            //DumpPartInfoList();
+            Log.Info("vvvvvvvvvvvv repository.allExperimentParts Dump vvvvvvvvvvvvv");
+            foreach (var e in Repository.allExperimentParts)
             {
-                Log.Info("GUID: " + contract.Key.ToString() + ", Title: " + contract.Value.contractContainer.Title + ", # Experiments: " + contract.Value.experiments.Count);
-                string exp = "";
-                foreach (var e in contract.Value.experiments)
+                Log.Info("Experiment: " + e.Value.experimentName);
+                string p = "";
+                foreach (var part in e.Value.parts)
                 {
-                    exp += e.ToString() + ", ";
+                    p += part + ", ";
                 }
-                Log.Info("     Experiments: " + exp);
+                Log.Info("    Parts: " + p);
             }
+            Log.Info("^^^^^^^^^^^^ repository.allExperimentParts Dump ^^^^^^^^^^^^^\n");
 
-            Log.Info("=====================================");
-            Log.Info("Data Dump, Experiment Parts (parts with experiments needed for active contracts)");
-            Log.Info("=====================================");
-            foreach (var ep in experimentParts)
+            Log.Info("vvvvvvvvvvvv Repository Dump vvvvvvvvvvvvv");
+            Log.Info("*** Contracts ***");
+            foreach (var c in Repository.Contracts.Values)
             {
-                ContractExperimentPart expPart = ep.Value;
-                if (expPart.scanSatPart)
-                    Log.Info("Key: " + ep.Key + ", SCANSat part: ep.ExperimentID: " + expPart.experimentID + ", scanType: " +
-                        expPart.scanType.ToString() + ", scantype: " + (int)expPart.scanType + ", experimentTitle: " +
-                        expPart.experimentTitle + ", contractGuid: " + expPart.contractGuid + ", numExpAvail: " + expPart.numExpAvail +
-                        ", # parts: " + expPart.parts.Count);
-                else
-                    Log.Info("Key: " + ep.Key + ", ep.ExperimentID: " + expPart.experimentID + ", experimentTitle: " +
-                        expPart.experimentTitle + ", contractGuid: " + expPart.contractGuid + ", numExpAvail: " + expPart.numExpAvail +
-                        ", # parts: " + expPart.parts.Count);
-
-                foreach (AvailPartWrapper part in expPart.parts)
+                Log.Info("Contract: " + c.Log());
+                foreach (var eg in c.ExperimentGroups)
                 {
-                    if (part.scanSatPart)
-                        Log.Info("  part.partTitle: " + part.partTitle + ", numAvailable: " + part.numAvailable + ", scanType: " + part.scanType + ", scanType(int): " + (int)part.scanType +
-                            ", scanSatPart: " + part.scanSatPart);
-                    else
-                        Log.Info("  part.partTitle: " + part.partTitle + ", numAvailable: " + part.numAvailable);
+                    Log.Info("    Experiment group name: " + eg.Key);
+                    foreach (Experiment e in eg.Value)
+                        Log.Info("        " + e.Log());
+                }
+                Log.Info("    Num of Neededparts: " + c.NeededParts.Count);
+                foreach (var p in c.NeededParts)
+                {
+                    foreach (AvailPartWrapper l in p.Value)
+                    {
+                        Log.Info("        NeededParts Key: " + p.Key + ", " + l.partTitle);
+
+                    }
+                }
+                //Log.Info("    PartGroupKeys: " + c.LogPartGroups());
+                if (c.PartGroups.Count > 0)
+                {
+                    foreach (var pg in c.PartGroups)
+                        Log.Info("        PartGroupKey: " + pg.Value.partGroupKey + ", numAvailable: " + pg.Value.numAvailable);
+                }
+
+                foreach (Param p in c.Params)
+                {
+                    Log.Info("    Params: " + p.Log());
+                    if (p.RequestedParts != null)
+                        Log.Info("        RequestedParts: " + p.LogReqParts());
+                    if (p.subjectId != null)
+                        Log.Info("        SubjectID: " + p.subjectId);
+                    if (p.CheckModules.Count > 0)
+                    {
+                        foreach (var cm in p.CheckModules)
+                            Log.Info("        ModuleTypes: " + cm.ModuleTypes + ", Description: " + cm.Description);
+                    }
+                    if (p.PartNames.Count > 0)
+                        Log.Info("        PartNames: " + p.LogPartNames());
+                    if (p.ModuleNames.Count > 0)
+                        Log.Info("        ModuleNames: " + p.LogModuleNames());
+                    if (p.Filters.Count > 0)
+                    {
+                        Log.Info("        Filters:");
+                        foreach (var f in p.Filters)
+                            Log.Info("            " + f.Log());
+                    }
+                }
+                Log.Info("    AvailableParts");
+                foreach (var pg in c.NeededParts)
+                {
+                    Log.Info("      PartGroup: " + pg.Key);
+                    foreach (var e in pg.Value)
+                    {
+                        Log.Info("          AvailablePart: " + e.Log());
+                        Log.Info("             Experiments: " + e.LogExperiments());
+                    }
                 }
             }
+            Log.Info("--------");
 
+            Log.Info("^^^^^^^^^^^^ Repository Dump ^^^^^^^^^^^^^\n");
+
+            Log.Info("vvvvvvvvvvvv RegisterToolbar.Repository.moduleInformation Dump vvvvvvvvvvvvv");
+            Log.Info("Repository.moduleInformation.Count: " + Repository.moduleInformation.Count);
+            foreach (var mi in Repository.moduleInformation)
+            {
+                Log.Info("Key: " + mi.Key + ", moduleName: " + mi.Value.moduleName + ", numAvailable: " + mi.Value.numAvailable);
+            }
+            Log.Info("^^^^^^^^^^^^ Repository.moduleInformation.Repository.moduleInformation Dump ^^^^^^^^^^^^^\n");
+
+
+#if true
             Log.Info("=====================================");
             Log.Info("Data Dump, ActiveContracts");
             Log.Info("=====================================");
             foreach (var contract in Settings.Instance.activeContracts)
             {
-                Log.Info("GUID: " + contract.Key.ToString() + ", Title: " + contract.Value.contractContainer.Title);
+                Log.Info("GUID: " + contract.Key.ToString());
             }
+#endif
             Log.Info("=====================================");
             Log.Info("Data Dump, activeLocalContracts");
             Log.Info("=====================================");
@@ -471,43 +471,32 @@ namespace WhatDoINeed
 
         void ScanShipKISInventory()
         {
-            Log.Info("ScanShipKISInventory");
+            //Log.Info("ScanShipKISInventory");
             for (int i0 = 0; i0 < EditorLogic.fetch.ship.Parts.Count; i0++)
             {
                 Part p = EditorLogic.fetch.ship.Parts[i0];
                 var availableItems = KISWrapper.GetInventories(p).SelectMany(i => i.items); //.ToArray();
-                Log.Info("part: " + p.name + ", # inv items: " + availableItems.Count());
+                //Log.Info("part: " + p.name + ", # inv items: " + availableItems.Count());
                 foreach (KeyValuePair<int, KISWrapper.KIS_Item> i in availableItems)
                 {
                     var kisInvPart = i.Value.partNode.GetValue("name");
-                    Log.Info("ScanShipKISInventory kisInvPart: " + kisInvPart);
+                    var part = PartLoader.getPartInfoByName(kisInvPart);
+                    ScanPart(part.partPrefab);
+                    SetPartOnShip(part.partPrefab);
 
-                    foreach (var ep in experimentParts)
-                    {
-                        for (int j = 0; j < ep.Value.parts.Count; j++)
-                        {
-                            var ap = ep.Value.parts[j];
-                            if (kisInvPart == ap.part.name)
-                            {
-                                ep.Value.numExpAvail++;
-                                ap.numAvailable++;
-                            }
-                        }
-                    }
+                    //Log.Info("ScanShipKISInventory kisInvPart: " + kisInvPart);
                 }
             }
         }
 
 
-
-        Dictionary<string, ContractExperimentPart> experimentParts = new Dictionary<string, ContractExperimentPart>();
         List<Guid> activeLocalContracts = new List<Guid>();
         /// <summary>
         /// Create list of all experiments, and which parts support each experiment
         /// </summary>
         void SetUpExperimentParts()
         {
-            Log.Info("SetUpExperimentParts");
+            //Log.Info("SetUpExperimentParts");
             // First get list of all experiments in the active contracts
 
             activeLocalContracts.Clear();
@@ -516,9 +505,9 @@ namespace WhatDoINeed
             ConfigNode gameNode = configNode.GetNode("GAME");
             ConfigNode[] scenarios = gameNode.GetNodes("SCENARIO");
 
-            Log.Info("=====================================");
-            Log.Info("Scanning contracts in Scenario ContractSystem node");
-            Log.Info("=====================================");
+            //Log.Info("=====================================");
+            //Log.Info("Scanning contracts in Scenario ContractSystem node");
+            //Log.Info("=====================================");
 
             if (scenarios != null && scenarios.Length > 0)
             {
@@ -532,263 +521,50 @@ namespace WhatDoINeed
                         //GUILayout.Label("contracts.Count: " + contracts.Length, CapComSkins.headerText, GUILayout.Width(100));
                         for (int j = 0; j < contracts.Length; j++)
                         {
-                            var contract = contracts[j];
+                            ConfigNode contract = contracts[j];
                             string state = contract.GetValue("state");
                             Guid contractGuid = new Guid(contract.GetValue("guid"));
+
+
                             ConfigNode[] param_s = contract.GetNodes("PARAM");
+                            string type = contract.GetValue("type");
+
                             string dataName = contract.GetValue("dataName");
                             if (state == "Active")
                             {
-                                activeLocalContracts.Add(contractGuid);
-                                for (int k = 0; k < param_s.Length; k++)
+                                var aContracts = contractParser.getActiveContracts;
+                                contractContainer c = aContracts.FirstOrDefault(b => b.ID == contractGuid);
+                                if (c == null)
+                                    Log.Error("Unable to find contract in contractParser: " + contractGuid);
+
+                                var contractTypeTmp = c.Root.GetType().ToString().Split('.');
+                                string contractType = contractTypeTmp[contractTypeTmp.Length - 1];
+                                if (contractType != "PlantFlag" && contractType != "ExplorationContract")
                                 {
-                                    var param = param_s[k];
-                                    string param_name = param.GetValue("name");
-                                    string param_state = param.GetValue("state");
-                                    string param_part;
-                                    string experiment = null;
-                                    string experimentDetail = null;
-                                    string scansatExpID = null;
-                                    short scansatExpIDShort = -1;
-
-                                    if (param_state == "Incomplete")
+                                    bool validContract = false;
+                                    for (int k = 0; k < param_s.Length; k++)
                                     {
-                                        param.TryGetValue("experiment", ref experiment);
-                                        if (experiment == null)
+                                        if (state != "Complete" && state != "Cancelled")
                                         {
-                                            switch (param_name)
-                                            {
-#if SCANSAT
-
-                                                case "SCANsatCoverage": // For SCANsat
-                                                    {
-                                                        //param.TryGetValue("scanName", ref scansatExpID);
-                                                        param.TryGetValue("scanType", ref scansatExpID);
-                                                        if (short.TryParse(scansatExpID, out scansatExpIDShort))
-                                                        {
-                                                            Log.Error("SCANsatCoverage scanType: " + scansatExpID + " not a number");
-                                                        }
-
-                                                        experiment = "SCANsat"; // + experiment;
-                                                        experimentDetail = experiment;
-                                                        break;
-                                                    }
-#endif
-                                                // Handle the OrbitalScience here
-                                                case "StnSciParameter":
-                                                    {
-                                                        param.TryGetValue("experimentType", ref experiment);  // Now check for Station Science experiments
-                                                        if (experiment != null)
-                                                        {
-
-                                                            //experimentDetail = experiment.Remove(0, 16);
-                                                            //string a = experimentDetail[0].ToString().ToLower();
-                                                            //experimentDetail = a + experimentDetail.Remove(0, 1);
-                                                            experimentDetail = experiment;
-                                                            experiment = experiment.Substring(0, 16); // should be StnSciExperiment
-
-                                                        }
-                                                        break;
-                                                    }
-
-                                                // Not sure if following will show up as s unique contract in the contract system, need to test
-                                                case "USAdvancedScience":  //Universal Storage    (probably not Station Science experiments)
-                                                    {
-                                                        Log.Info("USAdvancedScience experiment found");
-                                                        param.TryGetValue("experimentID", ref experiment);  // More Station Science experiments
-                                                        experimentDetail = experiment;
-                                                        break;
-                                                    }
-
-                                                case "ConstructionParameter":
-                                                case "RepairPartParameter":
-                                                case "PartTest":
-                                                    {
-                                                        if (param_name == "RepairPartParameter" || param_name == "ConstructionParameter")
-                                                            param_part = param.GetValue("partName");
-                                                        else
-                                                            param_part = param.GetValue("part");
-
-                                                        CEP_Key_Tuple ckt = new CEP_Key_Tuple(param_name, contractGuid, param_part);
-                                                        if (!experimentParts.ContainsKey(ckt.Key()))
-                                                        {
-#if false
-                                                            Log.Info("Contract guid: " + contractGuid + ", experiment: " + param_name + ", part: " + param_part + ", key: " + ckt.Key());
-#endif
-                                                            experimentParts.Add(ckt.Key(), new ContractExperimentPart(ckt));
-
-                                                            for (int l = 0; l < PartLoader.LoadedPartsList.Count; l++)
-                                                            {
-                                                                AvailablePart p = PartLoader.LoadedPartsList[l];
-                                                                if (p.name == param_part)
-                                                                {
-                                                                    experimentParts[ckt.Key()].parts.Add(new AvailPartWrapper(p));
-                                                                    //if (!Settings.Instance.activeContracts.ContainsKey(contractGuid))
-                                                                    if (param_part == null)
-                                                                        Log.Error("Error 1, param_part is null");
-                                                                    Settings.Instance.activeContracts[contractGuid].experiments.Add(param_name, param_part);
-                                                                    break;
-                                                                }
-                                                            }
-                                                        }
-                                                        break;
-                                                    }
-
-                                                case "DMLongOrbitParameter": // This is for the DMagic science stuff
-                                                    {
-#if false
-                                                        Log.Info("PARAM found: DMLongOrbitParameter");
-#endif
-                                                        var partRequestParams = param.GetNodes("PARAM");
-                                                        for (int l = 0; l < partRequestParams.Length; l++)
-                                                        {
-                                                            var prp = partRequestParams[l];
-                                                            string requestedParts = prp.GetValue("Requested_Parts");
-                                                            if (requestedParts != null)
-                                                            {
-                                                                List<string> requestedPartsList = requestedParts.Split(',').ToList<string>();
-                                                                for (int m = 0; m < requestedPartsList.Count; m++)
-                                                                {
-                                                                    string part = requestedPartsList[m];
-                                                                    CEP_Key_Tuple ckt = new CEP_Key_Tuple(param_name, contractGuid, part);
-                                                                    if (!experimentParts.ContainsKey(ckt.Key()))
-                                                                    {
-#if false
-                                                                        Log.Info("DMPartRequestParameter, Contract guid: " + contractGuid + ", experiment: " + part + ", part: " + part + ", key: " + ckt.Key());
-#endif
-                                                                        for (int n = 0; n < PartLoader.LoadedPartsList.Count; n++)
-                                                                        {
-                                                                            AvailablePart p = PartLoader.LoadedPartsList[n];
-                                                                            if (p.name == part && p.category != PartCategories.none)
-                                                                            {
-                                                                                experimentParts.Add(ckt.Key(), new ContractExperimentPart(ckt));
-                                                                                experimentParts[ckt.Key()].parts.Add(new AvailPartWrapper(p));
-
-                                                                                //if (!Settings.Instance.activeContracts.ContainsKey(contractGuid))
-                                                                                if (experiment == null)
-                                                                                {
-                                                                                    Log.Info("DMPartRequestParameter, Contract guid: " + contractGuid + ", experiment: " + part + ", part: " + part + ", key: " + ckt.Key());
-                                                                                    Log.Error("Error 2, experiment is null");
-                                                                                }
-                                                                                else
-                                                                                    Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, experiment);
-
-                                                                                break;
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                        break;
-                                                    }
-                                                case "PartValidation": // For REPOSoftTech/ResearchBodies
-                                                    {
-                                                        Log.Info("PARAM found: PartValidation");
-                                                        var partValidationFilterParams = param.GetNodes("FILTER");
-                                                        for (int m = 0; m < partValidationFilterParams.Length; m++)
-                                                        {
-                                                            var prp = partValidationFilterParams[m];
-                                                            string requestedPartModule = prp.GetValue("partModule");
-                                                            if (requestedPartModule != null)
-                                                            {
-                                                                CEP_Key_Tuple ckt = new CEP_Key_Tuple(param_name, contractGuid, requestedPartModule);
-                                                                if (!experimentParts.ContainsKey(ckt.Key()))
-                                                                {
-#if true
-                                                                    Log.Info("Contract guid: " + contractGuid + ", experiment: " + "PartValidation" + ", module: " + requestedPartModule + ", key: " + ckt.Key());
-#endif
-                                                                    for (int n = 0; n < PartLoader.LoadedPartsList.Count; n++)
-                                                                    {
-                                                                        AvailablePart p = PartLoader.LoadedPartsList[n];
-                                                                        if (p.category != PartCategories.none)
-                                                                        {
-                                                                            var mNodesList = p.partConfig.GetNodes("MODULE");
-                                                                            for (int o = 0; o < mNodesList.Length; o++)
-                                                                            {
-                                                                                var mNode = mNodesList[o];
-                                                                                string moduleName = mNode.GetValue("name");
-
-                                                                                if (moduleName == requestedPartModule)
-                                                                                {
-                                                                                    if (!experimentParts.ContainsKey(ckt.Key()))
-                                                                                        experimentParts.Add(ckt.Key(), new ContractExperimentPart(ckt));
-                                                                                    experimentParts[ckt.Key()].parts.Add(new AvailPartWrapper(p));
-                                                                                    //if (!Settings.Instance.activeContracts.ContainsKey(contractGuid))
-                                                                                    if (experiment == null)
-                                                                                        Log.Error("Error 3, experiment is null");
-                                                                                    experiment = "PartValidation";
-                                                                                    if (!Settings.Instance.activeContracts[contractGuid].experiments.ContainsKey(experiment))
-                                                                                        Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, experiment);
-                                                                                    experiment = null;
-#if false                   
-                                                                                    if (moduleName.Substring(0, 2) == "dm")
-                                                                                        Log.Info("Part: " + p.name + " has module: " + requestedPartModule + ", key: " + ckt.Key());
-#endif
-                                                                                    break;
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                        break;
-                                                    }
-                                            }
-                                        }
-                                        if (experiment != null)
-                                        {
-                                            CEP_Key_Tuple ckt = new CEP_Key_Tuple(experiment, contractGuid);
-                                            if (!experimentParts.ContainsKey(ckt.Key()))
-                                            {
-                                                if (scansatAvailable && scansatExpID != null)
-                                                {
-                                                    ckt = new CEP_Key_Tuple(experiment, contractGuid, ((SCANsatSCANtype)scansatExpIDShort).ToString()); //  scansatExpID);
-#if DEBUG
-                                                    Log.Info("Contract guid: " + contractGuid + ", experiment: " + experiment + ", key: " + ckt.Key() + ", scansatExpID: " + scansatExpID);
-#endif
-                                                    experimentParts.Add(ckt.Key(), new ContractExperimentPart(ckt, scansatExpID));
-                                                }
-                                                else
-                                                {
-#if DEBUG
-                                                    Log.Info("Contract guid: " + contractGuid + ", experiment: " + experiment + ", key: " + ckt.Key());
-#endif
-                                                    experimentParts.Add(ckt.Key(), new ContractExperimentPart(ckt));
-                                                }
-                                                Log.Info("Adding experiment to Settings.Instance.activecontracts, guid: " + contractGuid);
-
-                                                if (experiment == null)
-                                                    Log.Error("Error 4, experiment is null");
-                                                if (scansatExpID != null)
-                                                {
-                                                    Log.Info("Adding experiment to activeContracts, experiment: " + experiment + ", scansatExpID: " + scansatExpID);
-                                                    Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, scansatExpID);
-                                                }
-                                                else
-                                                {
-                                                    Log.Info("Adding experiment to activeContracts, experiment: " + experiment);
-                                                    if (!Settings.Instance.activeContracts[contractGuid].experiments.ContainsKey(experiment))
-                                                        Settings.Instance.activeContracts[contractGuid].experiments.Add(experiment, experiment);
-                                                }
-                                            }
-
+                                            ProcessConfigNode(k, contract, state, contractGuid, type, param_s[k], ref validContract);
                                         }
                                     }
+                                    if (validContract)
+                                        activeLocalContracts.Add(contractGuid);
+                                    else
+                                    if (!validContract && Repository.Contracts.ContainsKey(contractGuid))
+                                        Repository.Contracts.Remove(contractGuid);
+
                                 }
                             }
                         }
                     }
-
-
-
                 }
             }
 
-            Log.Info("=====================================");
-            Log.Info("Scanning Parts, looking for experiments");
-            Log.Info("=====================================");
+            //Log.Info("=====================================");
+            //Log.Info("Scanning Parts, looking for experiments");
+            //Log.Info("=====================================");
 
 
             // Now go through all the parts, looking for experiments
@@ -801,13 +577,13 @@ namespace WhatDoINeed
                     if (p.category != PartCategories.none)
                     {
                         ConfigNode[] modules = p.partConfig.GetNodes("MODULE");
+                        Log.Info("SetupExperimentParts, modules: " + modules.Length);
                         if (modules != null && modules.Length > 0)
                         {
                             for (int j = 0; j < modules.Length; j++)
                             {
                                 ConfigNode experiment = modules[j];
                                 string name = experiment.GetValue("name");
-                                bool show = false;
                                 string experimentID = null;
                                 experimentID = experiment.GetValue("experimentID");
 #if false
@@ -824,7 +600,6 @@ namespace WhatDoINeed
 #endif
                                 if (scansatAvailable && name == "ModuleSCANresourceScanner")
                                 {
-                                    show = true;
                                     experimentID = DoSCANSatResourceScanner(experiment, p);
 
                                 }
@@ -835,8 +610,6 @@ namespace WhatDoINeed
                                 }
                                 if (scansatAvailable && name == "SCANsat")
                                 {
-                                    show = true;
-
                                     experimentID = DoSCANSatModule(experiment, p);
                                 }
                                 else
@@ -844,25 +617,6 @@ namespace WhatDoINeed
                                     //Log.Info("part: " + p.name + ", moduleName: " + name + ", experimentID: " + experimentID + ", experimentType: " + experimentType);
                                     if (experimentID != null && experimentID != "Nothing")
                                     {
-                                        for (int k = 0; k < activeLocalContracts.Count; k++)
-                                        {
-                                            var activeContract = activeLocalContracts[k];
-
-                                            var cet = new CEP_Key_Tuple(experimentID, activeContract).Key();
-#if DEBUG
-                                            if (show)
-                                                Log.Info("part: " + p.name + ", title: " + p.title + ", experiment module name: " + name + ", expid: " + experimentID + ", key: " + cet);
-#endif
-                                            if (experimentParts.ContainsKey(cet))
-                                            {
-#if DEBUG
-                                                if (show)
-                                                    Log.Info("part: " + p.name + ", title: " + p.title + ", experiment module name: " + name + ", expid: " + experimentID + ", contract: " + activeContract);
-#endif
-                                                var experimentPart = experimentParts[cet];
-                                                experimentPart.parts.Add(new AvailPartWrapper(p));
-                                            }
-                                        }
                                     }
                                 }
                             }
@@ -870,117 +624,564 @@ namespace WhatDoINeed
                     }
                 }
             }
-#if false
-            Log.Info("=====================================");
-            Log.Info("Data Dump, experimentParts");
-            Log.Info("=====================================");
 
-            foreach (var epall in experimentParts)
-            {
-                string parts = "";
-                foreach (var p in epall.Value.parts)
-                    parts += p.part.name + ", ";
-                if (!epall.Value.scanSatPart)
-                    Log.Info("Key: " + epall.Key + ",    Parts: " + parts);
-                else
-                    Log.Info("Key: " + epall.Key + ",    Parts: " + parts + ", scanType: " + (int)epall.Value.scanType);
-            }
-#endif
-            Log.Info("=====================================");
-            Log.Info("Scanning ship, looking for parts with experiments");
-            Log.Info("=====================================");
+            //Log.Info("=====================================");
+            //Log.Info("Scanning ship, looking for parts with experiments");
+            //Log.Info("=====================================");
 
             ScanShip();
         }
 
-        void ScanContracts()
+        public List<string> moduleTypes = new List<string> { "Antenna", "Generator", "Dock", "Grapple", "Wheel", "Laboratory", "Harvester", "Greenhouse" };
+
+        // need to merge the one below with SetUpExperimentParts
+        void InitializeModuleTitles()
         {
-            Log.Info("ScanContracts");
-            var aContracts = contractParser.getActiveContracts;
-            for (int i = 0; i < aContracts.Count; i++)
+
+            Log.Info("InitializeModuleTitles 1");
+            if (!Repository.moduleInformation.ContainsKey("Antenna"))
             {
-                var contract = aContracts[i];
-                if (!Settings.Instance.activeContracts.ContainsKey(contract.ID))
+                Repository.moduleInformation.Add("Antenna", new ModuleInformation("Antenna"));
+                Repository.moduleInformation.Add("Generator", new ModuleInformation("Generator"));
+                Repository.moduleInformation.Add("Dock", new ModuleInformation("Dock"));
+                Repository.moduleInformation.Add("Grapple", new ModuleInformation("Grapple"));
+                Repository.moduleInformation.Add("Wheel", new ModuleInformation("Wheel"));
+
+                Repository.moduleInformation.Add("Laboratory", new ModuleInformation("Laboratory"));
+                Repository.moduleInformation.Add("Harvester", new ModuleInformation("Harvester"));
+                Repository.moduleInformation.Add("Greenhouse", new ModuleInformation("Greenhouse"));
+
+                if (PartLoader.LoadedPartsList == null)
+                    Log.Error("PartLoader.LoadedPartsList is null");
+
+                for (int i = 0; i < PartLoader.LoadedPartsList.Count; i++)
                 {
-                    Settings.Instance.activeContracts.Add(contract.ID, new Contract(contract));
-                    Log.Info("Contract: " + contract.ID);
-                }
-            }
-            Log.Info("Active Contracts: " + Settings.Instance.activeContracts.Count);
-            int cnt = 0;
-            foreach (var contract in Settings.Instance.activeContracts)
-            {
-                Log.Info("ScanContracts, Settings.Instance.activeContract: " + contract.Key);
-                if (contract.Value.selected)
-                    cnt++;
-            }
+                    AvailablePart ap = PartLoader.LoadedPartsList[i];
 
-            if (Settings.Instance.initialShowAll && cnt == 0) //Settings.Instance.activeContracts.Count == 0)
-            {
-                foreach (var contract in Settings.Instance.activeContracts)
-                    contract.Value.selected = true;
-            }
-
-
-        }
-
-        string DoSCANSatResourceScanner(ConfigNode experiment, AvailablePart p)
-        {
-            Log.Info("DoSCANSatResourceScanner 1, part: " + p.name + ", Settings.Instance.activeContracts.Count: " + Settings.Instance.activeContracts.Count);
-            string experimentID = "Nothing";
-
-            string experimentType = experiment.GetValue("sensorType"); // SCANsat
-            short s;
-            if (short.TryParse(experimentType, out s))
-            {
-                SCANsatSCANtype scantype = (SCANsatSCANtype)s;
-
-                experimentID = scantype.ToString();
-                Log.Info("DoSCANSatResourceScanner 2, part: " + p.name + ", ScannerType: " + s);
-
-                //foreach (ContractExperimentPart ep in experimentParts.Values)
-                {
-                    //var a = ep.scanType & scantype;
-                    //Log.Info("DoSCANSatResourceScanner 3, ep: " + ep.experimentID + ", scantype: " + ep.scanType + ", scantype: " + scantype + ", a: " + a);
-                    //if (a != 0)
+                    if (ap.partConfig != null && ap.category != PartCategories.none)
                     {
-                        foreach (var activeContract in Settings.Instance.activeContracts)
+                        ConfigNode[] nodes = ap.partConfig.GetNodes("MODULE");
+                        if (RegisterToolbar.CheckForModuleLaunchClamp(nodes))
+                            continue;
+
+                        //Log.Info("p.partConfig.name: " + ap.partConfig.name + ", numNodes: " + nodes.Length);
+                        for (int j = 0; j < nodes.Length; j++)
                         {
-                            //Log.Info("DoSCANSatResourceScanner 4, activeContract: " + activeContract.Key + ", numExperiments: " + activeContract.Value.experiments.Count);
-                            foreach (var e in activeContract.Value.experiments)
+                            ConfigNode node = nodes[j];
+                            string moduleName = node.GetValue("name");
+                            if (moduleName == null)
                             {
-                                if (short.TryParse(e.Value, out short expScanType))
-                                {
-                                    var a = expScanType & s;
-                                    //Log.Info("DoSCANSatResourceScanner 5, expScanType: " + expScanType + ", scantype: " + scantype + ", scantype: " + scantype + ", a: " + a);
-                                    if (a != 0)
-                                    {
-                                        var cet = new CEP_Key_Tuple(e.Key, activeContract.Key);
-#if DEBUG
-                                        //Log.Info("DoSCANSatResourceScanner 6, part: " + p.name + ", title: " + p.title + ", experiment module name: " + name + ", expid: " + experimentID + ", key: " + cet);
-#endif
-                                        if (!experimentParts.ContainsKey(cet.Key()))
-                                        {
-                                            Log.Info("Adding to experimentParts, key: " + cet.Key() + ", contract: " + activeContract);
-                                            experimentParts.Add(cet.Key(), new ContractExperimentPart(cet));
-                                        }
-                                        {
-#if DEBUG
-                                            //Log.Info("DoSCANSatResourceScanner, part: " + p.name + ", title: " + p.title + ", experiment module name: " + name + ", expid: " + experimentID + ", contract: " + activeContract);
-#endif
-                                            var experimentPart = experimentParts[cet.Key()];
-                                            experimentPart.parts.Add(new AvailPartWrapper(p));
-                                        }
-                                    }
-                                }
+                                Log.Info("Module name is null");
+                            }
+                            if (!Repository.moduleInformation.ContainsKey(moduleName))
+                                Repository.moduleInformation.Add(moduleName, new ModuleInformation(moduleName));
+
+                            // The module categories are coded this way because the only way to get it from the module itself
+                            // would be to instantiate each part and then query the part.  Especially for games with thousands ofpart
+                            // that would take too long
+                            // The limitation of doing it this way is that any new mods which have new modules won't be
+                            // seen.
+                            switch (moduleName)
+                            {
+                                case "ModuleAntennaFeed":                       // Near Future Exploration
+                                case "ModuleDeployableAntenna":
+                                case "ModuleRTAntenna":                         // RemoteTech
+                                case "Antenna":                                 // Kerbalism
+                                case "ModuleSEPStation":                        // Surface Experiment Pack, old mod not being updated
+                                    Repository.moduleInformation["Antenna"].partsWithModule.Add(ap);
+                                    break;
+
+                                case "ModuleDeployableSolarPanel":
+                                case "ModuleGenerator":
+                                case "FissionGenerator":                        // Near Future Electrical
+                                case "ModuleRadioisotopeGenerator":             // Near Future Electrical
+                                case "ModuleSystemHeatFissionEngine":           // SystemHeat
+                                case "ModuleSystemHeatFissionReactor":          // SystemHeat
+                                case "ModuleSystemHeatFissionEngineOld ":       // SystemHeat
+                                case "KerbalismSentinel":                       // Kerbalism
+                                case "SSTUSolarPanelStatic":                    // SSTU
+                                case "SSTUModularPart":                         // SSTU
+                                case "SSTUSolarPanelDeployable":                // SSTU
+                                    Repository.moduleInformation["Generator"].partsWithModule.Add(ap);
+                                    break;
+
+                                case "ModuleDockingNode":
+                                case "FlexoTube":
+                                    Repository.moduleInformation["Dock"].partsWithModule.Add(ap);
+                                    break;
+
+                                case "ModuleGrappleNode":
+                                    Repository.moduleInformation["Grapple"].partsWithModule.Add(ap);
+                                    break;
+
+                                case "ModuleWheelBase":
+                                case "KSPWheelMotor":                           // KSPwheel
+                                    Repository.moduleInformation["Wheel"].partsWithModule.Add(ap);
+                                    break;
+
+                                case "Laboratory":                              // Kerbalism
+                                    Repository.moduleInformation["Laboratory"].partsWithModule.Add(ap);
+                                    break;
+
+                                case "Harvester":                               // Kerbalism
+                                    Repository.moduleInformation["Harvester"].partsWithModule.Add(ap);
+                                    break;
+                                case "Greenhouse":                               // Kerbalism
+                                    Repository.moduleInformation["Greenhouse"].partsWithModule.Add(ap);
+                                    break;
                             }
                         }
                     }
                 }
             }
-            experimentID = "Nothing";
-            if (experimentID != "Nothing")
-                Log.Info("part: " + p.name + ", ModuleResourceScanner,  experimentType: " + experimentID);
+#if DEBUG
+            foreach (var s in moduleTypes)
+            {
+                Log.Info("Module Type: " + s + ", number of parts: " + Repository.moduleInformation[s].partsWithModule.Count);
+                foreach (var p in Repository.moduleInformation[s].partsWithModule)
+                    Log.Info("        Part: " + p.name);
+            }
+#endif
+        }
+
+        /// <summary>
+        /// Needs to be optimized 
+        /// </summary>
+        /// <param name="partModule"></param>
+        /// <returns></returns>
+        string GetPartModuleTitle(string filterPartModule)
+        {
+            //if (Repository.moduleInformation.Count == 0)
+            //    InitializeModuleTitles();
+
+            if (Repository.moduleInformation.ContainsKey(filterPartModule))
+                return Repository.moduleInformation[filterPartModule].moduleName;
+            return null;
+        }
+
+        void ProcessConfigNode(int cnt, ConfigNode contract, string state, Guid contractGuid, string type, ConfigNode param, ref bool validContract)
+        {
+            string param_name = param.GetValue("name");
+            string param_type = param.GetValue("type");
+
+            //string param_state = param.GetValue("state");
+            //Log.Info("ProcessConfigNode, state: " + state + ", contractGuid: " + contractGuid + ", type: " + type + ", param_name: " + param_name);
+
+            //if (param_state == "Incomplete")
+            {
+                string param_part = null;
+                string experiment = null;
+                string experimentDetail = null;
+                string scansatExpID = null;
+                short scansatExpIDShort = -1;
+                string scanName = "";
+                string kerbalName = null;
+
+                param.TryGetValue("experiment", ref experiment);
+                param.TryGetValue("KerbalName", ref kerbalName);
+
+                Param parameter = null;
+
+                bool newVesselParamFound = false;
+                Log.Info("ProcessConfigNode, contractGuid: " + contractGuid + ", name: " + param_name + ", type: " + param_type);
+
+                if (experiment == null)
+                {
+                    switch (param_name)
+                    {
+                        case "NewVessel":
+                            newVesselParamFound = true;
+                            break;
+                        case "SCANsatCoverage": // For SCANsat
+                            {
+                                newVesselParamFound = true;
+                                param.TryGetValue("scanType", ref scansatExpID);
+                                if (short.TryParse(scansatExpID, out scansatExpIDShort))
+                                {
+                                    //Log.Info("SCANsatCoverage scanType: " + scansatExpID + " not a number, trying alternate method");
+
+                                    // for some reason, the short.TryParse is failing sometimes on a legitimate number, but the Convert works
+
+                                    try
+                                    {
+                                        scansatExpIDShort = Convert.ToInt16(scansatExpID);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Log.Error("SCANsatCoverage scanType: " + scansatExpID + " not a number");
+                                        Log.Error("Convert error: " + ex.Message);
+                                    }
+                                }
+                                param.TryGetValue("scanName", ref scanName);
+                                experiment = "SCANsat"; // + experiment;
+                                experimentDetail = experiment;
+
+                                CEP_Key_Tuple ckt;
+                                //ContractExperimentPart cep;
+
+                                parameter = new Param(param_name, cnt, param_name);
+                                parameter.scanName = scanName;
+                                parameter.scanType = (SCANsatSCANtype)scansatExpIDShort;
+
+                                //Repository.Contracts[contractGuid].AddParam(parameter);
+
+                                short a = Convert.ToInt16(scansatExpID);
+                                ckt = new CEP_Key_Tuple(a.ToString(), contractGuid, true);
+                                //cep = new ContractExperimentPart(ckt, scansatExpID);
+
+                                repository.AddExperimentToContract(contractGuid, ckt.Key(), new Experiment(1, ckt, scansatExpID));
+
+                                experiment = "";
+                                break;
+                            }
+                        // Handle the OrbitalScience here
+                        case "StnSciParameter":
+                            {
+                                newVesselParamFound = true;
+                                param.TryGetValue("experimentType", ref experiment);  // Now check for Station Science experiments
+                                if (experiment != null)
+                                {
+
+                                    //experimentDetail = experiment.Remove(0, 16);
+                                    //string a = experimentDetail[0].ToString().ToLower();
+                                    //experimentDetail = a + experimentDetail.Remove(0, 1);
+                                    experimentDetail = experiment;
+                                    experiment = experiment.Substring(0, 16); // should be StnSciExperiment
+
+                                }
+                                parameter = new Param(param_name, cnt, param_name);
+                                parameter.experimentType = experiment;
+                                Repository.Contracts[contractGuid].AddParam(parameter);
+
+                                break;
+                            }
+
+#if true
+                        // Not sure if following will show up as s unique contract in the contract system, need to test
+                        // TODO
+                        case "USAdvancedScience":  //Universal Storage    (probably not Station Science experiments)
+                            {
+                                newVesselParamFound = true;
+                                Log.Info("USAdvancedScience experiment found");
+                                param.TryGetValue("experimentID", ref experiment);  // More Station Science experiments
+                                experimentDetail = experiment;
+                                break;
+                            }
+#endif
+                        case "ConstructionParameter":
+                        case "RepairPartParameter":
+                        case "PartTest":
+                            {
+                                newVesselParamFound = true;
+
+                                if (param_name == "RepairPartParameter" || param_name == "ConstructionParameter")
+                                    param_part = param.GetValue("partName");
+                                else
+                                    param_part = param.GetValue("part");
+
+                                //parameter = new Param(param_name, param_name);
+                                //parameter.AddPartName(param_part);
+                                //Repository.Contracts[contractGuid].AddParam(parameter);
+
+                                CEP_Key_Tuple ckt = new CEP_Key_Tuple(param_name, contractGuid, param_part);
+                                Log.Info("PartTest, param_part: " + param_part);
+                                var p = GetPartByIndex(param_part);
+                                if (p != null)
+                                    Repository.Contracts[contractGuid].AddNeededPart(1, p.name, new AvailPartWrapper(p));
+                                else
+                                    Log.Error("Part not found by index");
+
+                                repository.AddExperimentToContract(contractGuid, ckt.Key(), new Experiment(2, ckt));
+                                //ZZZ
+
+                                break;
+                            }
+
+                        case "VesselSystemsParameter":
+                            // checkModuleTypes = Antenna | Generator | Dock
+                            // checkModuleDescriptions = has an antenna| has a docking port | can generate power
+                            {
+                                newVesselParamFound = true;
+                                string checkModuleTypes = null;
+                                string checkModuleDescriptions = null;
+
+                                param.TryGetValue("checkModuleTypes", ref checkModuleTypes);
+                                param.TryGetValue("checkModuleDescriptions", ref checkModuleDescriptions);
+
+                                var moduleTypes = checkModuleTypes.Split('|');
+                                var moduleDescriptions = checkModuleDescriptions.Split('|');
+                                if (moduleTypes.Length != moduleDescriptions.Length)
+                                    Log.Error("moduleTypes count doesn't match moduleDescriptions.");
+                                //parameter = new Param(param_name, cnt, type);
+                                parameter = new Param(param_name, cnt, param_name);
+                                for (int i1 = 0; i1 < moduleTypes.Length; i1++)
+                                {
+                                    parameter.CheckModules.Add(new CheckModule(moduleTypes[i1], moduleDescriptions[i1]));
+                                }
+                                Repository.Contracts[contractGuid].AddParam(parameter);
+                            }
+                            break;
+
+                        case "PartRequestParameter":
+                            // partNames = cupola|sspx-cupola-125-1|sspx-cupola-1875-1|sspx-cupola-375-1|sspx-observation-25-1|sspx-dome-5-1
+                            // moduleNames = ModuleScienceLab
+                            string partNames = null;
+                            string moduleNames = null;
+                            newVesselParamFound = true;
+
+                            parameter = new Param(param_name, cnt, param_name);
+
+                            param.TryGetValue("partNames", ref partNames);
+                            if (partNames != null)
+                            {
+                                parameter.AddPartNames(partNames.Split('|').ToList());
+
+                            }
+                            param.TryGetValue("moduleNames", ref moduleNames);
+                            if (moduleNames != null)
+                            {
+                                parameter.ModuleNames = moduleNames.Split('|').ToList();
+                            }
+                            Repository.Contracts[contractGuid].AddParam(parameter);
+
+                            break;
+
+                        case "DMLongOrbitParameter": // This is for the DMagic science stuff
+                            {
+                                newVesselParamFound = true;
+                                var partRequestParams = param.GetNodes("PARAM");
+
+                                for (int l = 0; l < partRequestParams.Length; l++)
+                                {
+                                    string pname = null;
+                                    partRequestParams[l].TryGetValue("name", ref pname);
+                                    if (pname == "DMPartRequestParameter")
+                                    {
+                                        string Requested_Parts = null;
+                                        partRequestParams[l].TryGetValue("Requested_Parts", ref Requested_Parts);
+                                        List<string> rp = Requested_Parts.Split('|').ToList();
+                                        for (int i = 0; i < rp.Count; i++)
+                                        {
+                                            var r = rp[i];
+                                            parameter = new Param(param_name, cnt * 100 + i, type);
+                                            parameter.AddRequestedParts(r.Split(',').ToList());
+                                            Repository.Contracts[contractGuid].AddParam(parameter);
+                                        }
+                                    }
+                                }
+                                experiment = null;
+
+                                break;
+                            }
+
+                        case "PartValidation": // For REPOSoftTech/ResearchBodies
+                            {
+                                Log.Info("PartValidation");
+                                newVesselParamFound = true;
+                                parameter = new Param(param_name, cnt, param_name);
+
+                                var partValidationFilterParams = param.GetNodes("FILTER");
+                                Log.Info("PartValidation, number of FILTERs: " + partValidationFilterParams.Length);
+
+                                // First check for needed part modules
+                                for (int m = 0; m < partValidationFilterParams.Length; m++)
+                                {
+                                    string filterPartModule = null;
+                                    string filterCategory = null;
+                                    string filterType = null;
+
+                                    ConfigNode prp = partValidationFilterParams[m];
+
+                                    prp.TryGetValue("partModule", ref filterPartModule);
+                                    prp.TryGetValue("type", ref filterType);
+                                    if (filterPartModule != null)
+                                    {
+                                        string filterPartModuleTitle = GetPartModuleTitle(filterPartModule);
+
+                                        Log.Info("FILTER partModule, reqPartModule: " + filterPartModule);
+
+                                        if (filterPartModuleTitle != null)
+                                            parameter.Filters.Add(new Filter("partModule", filterPartModule, filterPartModuleTitle));
+
+                                    }
+                                    else
+                                    {
+                                        prp.TryGetValue("category", ref filterCategory);
+                                        if (filterCategory != null)
+                                        {
+                                            Log.Info("FILTER, filterCategory: " + filterCategory);
+                                            parameter.Filters.Add(new Filter("category", filterCategory, ""));
+                                        }
+                                        else
+                                        {
+                                            Log.Info("FILTER, type: " + filterType);
+                                            switch (filterType)
+                                            {
+                                                case "NONE":
+                                                    {
+                                                        var module = prp.GetNode("MODULE");
+                                                        if (module != null)
+                                                        {
+                                                            string engineType = null;
+                                                            string aname = null;
+                                                            module.TryGetValue("engineType", ref engineType);
+                                                            if (engineType != null)
+                                                            {
+                                                                parameter.Filters.Add(new Filter("NONE", "engineType", engineType));
+                                                            }
+                                                            else
+                                                            {
+                                                                module.TryGetValue("name", ref aname);
+                                                                if (aname != null)
+                                                                    parameter.Filters.Add(new Filter("NONE", "moduleName", aname));
+                                                            }
+                                                        }
+                                                    }
+                                                    break;
+                                                case "FILTER":
+                                                    var parts = prp.GetValues("part");
+                                                    if (parts != null)
+                                                    {
+                                                        foreach (var part in parts)
+                                                            parameter.Filters.Add(new Filter("FILTER", "part", part));
+                                                    }
+                                                    var partModules = prp.GetValues("partModule");
+                                                    foreach (var pm in partModules)
+                                                    {
+                                                        // string filterPartModuleTitle = GetPartModuleTitle(filterPartModule) ;
+                                                        parameter.Filters.Add(new Filter("FILTER", "partModule", pm));
+                                                    }
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                    if (!Repository.Contracts.ContainsKey(contractGuid))
+                                        Log.Error("contractGuid not found in Contracts");
+                                    Repository.Contracts[contractGuid].AddParam(parameter);
+                                    //Log.Info("After repository");
+
+#if false
+	FILTER
+	{
+		type = FILTER
+		partModule = RoverScience
+	}
+				
+	FILTER
+	{
+		type = NONE
+		MODULE
+		{
+			EngineType = SolidBooster
+		}
+	}
+    FILTER
+	{
+		type = NONE
+		MODULE
+		{
+			name = ModuleEnginesFX
+		}
+	}
+    FILTER
+	{
+		type = FILTER
+		part = sensorAtmosphere
+		part = GooExperiment
+		part = Magnetometer
+		part = sensorAccelerometer
+		part = sensorBarometer
+		part = sensorGravimeter
+		part = sensorThermometer
+	}
+				
+#endif
+                                    Log.Info("PartValidation 2");
+
+                                    //else
+                                    //Log.Info("SetUpExperimentPart 3");
+                                    //Log.Info("SetUpExperimentPart 4");
+                                    Log.Info("PartValidation 3");
+
+                                }
+                                break;
+                            }
+                        case "CollectDeployedScience":
+                            {
+                                newVesselParamFound = true;
+                                string subjectId = null;
+                                param.TryGetValue("subjectId", ref subjectId);
+
+                                if (subjectId != null)
+                                {
+                                    parameter = new Param(param_name, cnt, param_name);
+                                    parameter.subjectId = subjectId;
+                                    Repository.Contracts[contractGuid].AddParam(parameter);
+
+                                }
+                                break;
+                            }
+                    }
+                }
+                if (newVesselParamFound)
+                    validContract = true;
+
+            }
+        }
+
+
+        void ScanContracts()
+        {
+            //Log.Info("ScanContracts");
+            var aContracts = contractParser.getActiveContracts;
+
+            int cnt = 0;
+            for (int i = 0; i < aContracts.Count; i++)
+            {
+                contractContainer contract = aContracts[i];
+                var contractTypeTmp = contract.Root.GetType().ToString().Split('.');
+                string contractType = contractTypeTmp[contractTypeTmp.Length - 1];
+                Log.Info("contractType: " + contractType);
+
+                if (contractType != "PlantFlag" && contractType != "ExplorationContract")
+                {
+                    if (!Settings.Instance.activeContracts.ContainsKey(contract.ID))
+                    {
+                        Settings.Instance.activeContracts[contract.ID] = false;
+                        //Log.Info("Contract Added: " + contract.ID);
+                    }
+
+                    repository.AddContract(new ContractWrapper(contract, contract.ID, contractType, contractType));
+                    if (Settings.Instance.activeContracts.ContainsKey(contract.ID) &&
+                   Settings.Instance.activeContracts[contract.ID])
+                        cnt++;
+                }
+            }
+
+            Log.Info("initialShowAll: " + Settings.Instance.initialShowAll + ", cnt: " + cnt);
+            if (Settings.Instance.initialShowAll && cnt == 0)
+            {
+                foreach (var contract in Repository.Contracts)
+                    contract.Value.selected = true;
+            }
+            else
+            {
+                //foreach (var a in Settings.Instance.activeContracts)
+                //    Log.Info("ScanContracts, activeContracts from settings: " + a.Key + ", value: " + a.Value);
+                foreach (var contract in Repository.Contracts)
+                {
+                    //Log.Info("ScanContracts, contract.Key: " + contract.Key);
+                    if (Settings.Instance.activeContracts.ContainsKey(contract.Key) &&
+                        Settings.Instance.activeContracts[contract.Key])
+                        contract.Value.selected = true;
+                }
+            }
+        }
+
+        string DoSCANSatResourceScanner(ConfigNode experiment, AvailablePart p)
+        {
+            // TODO
+            string experimentID = "Nothing";
             return experimentID;
         }
 
@@ -994,110 +1195,46 @@ namespace WhatDoINeed
         string DoSCANSatModule(ConfigNode experimentConfigNode, AvailablePart availPart)
         {
             //return "";
-            Log.Info("===============");
-            Log.Info("DoSCANSatModule 1, part: " + availPart.name);
+            //Log.Info("===============");
+            //Log.Info("DoSCANSatModule 1, part: " + availPart.name);
 
             string experimentID = "Nothing";
-            string sensorTypeStr = experimentConfigNode.GetValue("sensorType"); // SCANsat
-            short sensorType;
-            if (short.TryParse(sensorTypeStr, out sensorType))
-            {
-                // Need to do a bitwise AND to see if the part has the required experiment
-
-                SCANsatSCANtype scantype = (SCANsatSCANtype)sensorType;
-                //Log.Info("DoSCANsatModule, part: " + p.name + ", experiment: " + experiment.name + ", type: " + s +
-                //    ", type bitCount: " + CountBits(s));
-                experimentID = scantype.ToString();
-
-                foreach (var ep in Settings.Instance.activeContracts)
-                {
-
-                    var activeContract = ep.Key;
-                    foreach (string expStr in ep.Value.experiments.Values)
-                    {
-                        if (short.TryParse(expStr, out short expsensorType))
-                        {
-                            var availableExperiment = expsensorType & (short)scantype;
-
-                            if (availableExperiment != 0)
-                            {
-                                Log.Info("DoSCANSatModule 2, expStr: " + expStr + ", expsensorType: " + (int)expsensorType + ", scantype: " + (int)scantype + ", sensorTypeStr: " + sensorTypeStr + ", a: " + (int)availableExperiment + ", contract: " + activeContract);
-#if false
-                            Log.Info("part: " + p.name +", title: " + p.title +  ", experiment module name: " + name + ", expid: " + experimentID + ", ep.scanType: " + (int)ep.scanType);
-                            Log.Info("Bitwise comparision: " + (int)a);
-#endif
-                                //CEP_Key_Tuple cet = new CEP_Key_Tuple("SCANsat+" + availableExperiment.ToString(), activeContract);
-                                CEP_Key_Tuple cet = new CEP_Key_Tuple("SCANsat", activeContract, ((SCANsatSCANtype)availableExperiment).ToString());
-                                if (!experimentParts.ContainsKey(cet.Key()))
-                                {
-                                    Log.Info("DoSCANSatModule 3, adding: " + cet.Key());
-                                    experimentParts.Add(cet.Key(), new ContractExperimentPart(cet));
-                                }
-
-#if DEBUG
-                                Log.Info("DoSCANSatModule 4, part: " + availPart.name + ", title: " + availPart.title + ", experiment module name: SCANsat" + ", Key: " + cet.Key());
-#endif
-                                experimentParts[cet.Key()].parts.Add(new AvailPartWrapper(availPart, (SCANsatSCANtype)availableExperiment));
-                                //break;
-                                Log.Info("DoSCANSatModule 5");
-                            }
-                        }
-                    }
-                }
-#if false
-#if false
-                    Log.Info("part: " + availPart.name + ", experiment module name: " + name + ", expid: " + experimentID + ", key: " + cet);
-#endif
-
-                    foreach (SCANsatSCANtype st in Enum.GetValues(typeof(SCANsatSCANtype)))
-                    {
-                        if (CountBits((int)sensorType) != 1)
-                            continue;
-                        if ((st & scantype) == SCANsatSCANtype.Nothing)
-                            continue;
-                        Log.Info("part: " + availPart.name + ", experiment module name: " + name + ", expid: " + experimentID + ", sensorType: " + st.ToString());
-
-
-#if false
-                        if (experimentParts.ContainsKey(cet))
-                    {
-#if DEBUG
-                        Log.Info("part: " + availPart.name + ", experiment module name: " + name + ", expid: " + experimentID + ", contract: " + activeContract);
-#endif
-                        var experimentPart = experimentParts[cet];
-                        experimentPart.parts.Add(new AvailPartWrapper(p));
-                    }
-#endif
-                    }
-#endif
-
-            }
-            Log.Info("DoSCANSatModule, experimentID: " + experimentID);
-            Log.Info("===============");
-            experimentID = "Nothing";
             return experimentID;
         }
 
-        public void SetWinPos()
+        Rect lastWinPosSize = new Rect();
+
+
+        private void GUIToolbarToggle()
         {
-
-            //if (Settings.Instance.editorWinPos.width == 0)
-            //    Settings.Instance.editorWinPos = new Rect(Settings.Instance.winPos);
-            //else
-            //    Settings.Instance.winPos = new Rect(Settings.Instance.editorWinPos);
-            Settings.Instance.winPos.width = Mathf.Clamp(Settings.Instance.winPos.width, Settings.WINDOW_WIDTH, Screen.width);
-            Settings.Instance.winPos.width = Math.Min(Settings.Instance.winPos.width, Settings.WINDOW_WIDTH);
-            Settings.Instance.winPos.x = Math.Min(Settings.Instance.winPos.x, Screen.width - Settings.Instance.winPos.width);
-            Settings.Instance.lastVisibleStatus = visible;
-
-            Settings.Instance.SaveData();
+            GUIToggle();
+            if (!visible)
+                HideAllWindows();
+            else
+                CheckVisibleStatus();
         }
-
 
         private void GUIToggle()
         {
             visible = !visible;
-            Settings.Instance.lastVisibleStatus = visible;
+            Settings.Instance.lastContractWindowVisibleStatus = IsVisible;
+            //Settings.Instance.lastSettingsWindowVisibleStatus = SettingsWindow.IsVisible;
+            //Settings.Instance.lastSelectWindowVisibleStatus = SelectWindow.IsVisible;
+            //Settings.Instance.lastPartsWindowVisibleStatus = PartsWindow.IsVisible;
+            Settings.Instance.SaveData();
+        }
+
+        private void HideAllWindows()
+        {
+            Log.Info("HideAllWindows");
+            if (SettingsWindow.Exists && SettingsWindow.IsVisible)
+                SettingsWindow.GetInstance().DestroyWin(true);
+
+            if (SelectWindow.Exists && SelectWindow.IsVisible)
+                SelectWindow.GetInstance().DestroyWin(true);
+
+            if (NeededPartsWindow.Exists && NeededPartsWindow.IsVisible)
+                NeededPartsWindow.GetInstance().DestroyWin(true);
         }
 
         public void OnGUI()
@@ -1107,26 +1244,22 @@ namespace WhatDoINeed
                 return;
             }
 
-            if (!Hide && visible && Settings.Instance != null && Time.realtimeSinceStartup > quickHideEnd)
+            if (!Hide && visible && Settings.Instance != null)
             {
                 Rect tmpPos;
-                //GUI.skin = HighLogic.Skin;
                 SetAlpha(Settings.Instance.Alpha);
+                SetFontAlpha(ref Settings.Instance.kspWindow);
+                if (Settings.Instance.enableClickThrough || Time.realtimeSinceStartup <= quickHideEnd)
+                    tmpPos = GUILayout.Window(winId, Settings.Instance.winPos, ContractWindowDisplay, "What Do I Need? - Active Contract" + ((Settings.Instance.activeContracts.Count != 1) ? "s" : ""), Settings.Instance.kspWindow);
+                else
+                    tmpPos = ClickThruBlocker.GUILayoutWindow(winId, Settings.Instance.winPos, ContractWindowDisplay, "What Do I Need? - Active Contract" + ((Settings.Instance.activeContracts.Count != 1) ? "s" : ""), Settings.Instance.kspWindow);
+                if (!Settings.Instance.lockPos)
+                    Settings.Instance.winPos = tmpPos;
 
+                if (Settings.Instance.winPos != lastWinPosSize)
                 {
-                    if (!selectVisible)
-                    {
-                        if (Settings.Instance.enableClickThrough && !settingsVisible)
-                            tmpPos = GUILayout.Window(winId, Settings.Instance.winPos, ContractWindowDisplay, "What Do I Need? - Active " + contractText, Settings.Instance.kspWindow);
-                        else
-                            tmpPos = ClickThruBlocker.GUILayoutWindow(winId, Settings.Instance.winPos, ContractWindowDisplay, "What Do I Need? - Active " + contractText + " & Settings", Settings.Instance.kspWindow);
-                        if (!Settings.Instance.lockPos)
-                            Settings.Instance.winPos = tmpPos;
-                    }
-                    else
-                    {
-                        selWinPos = ClickThruBlocker.GUILayoutWindow(selWinId, selWinPos, SelectContractWindowDisplay, "What Do I Need? - Contract Selection", Settings.Instance.kspWindow);
-                    }
+                    lastWinPosSize = Settings.Instance.winPos = tmpPos;
+                    Settings.Instance.SaveData();
                 }
             }
         }
@@ -1136,9 +1269,10 @@ namespace WhatDoINeed
             if (!string.IsNullOrEmpty(name))
             {
                 AvailablePart partInfoByName = PartLoader.getPartInfoByName(name.Replace('_', '.'));
+                //Log.Info("WhatDoINeed.getPartTitle, partInfoByName: " + partInfoByName.name);
                 if (partInfoByName != null && ResearchAndDevelopment.PartModelPurchased(partInfoByName))
                 {
-                    return partInfoByName.title;
+                    return CleanPartTitle(partInfoByName.title);
                 }
             }
 
@@ -1151,342 +1285,83 @@ namespace WhatDoINeed
             GameObject myplayer = new GameObject("HelpWindowClass");
 
             var w = myplayer.AddComponent<HelpWindowClass>();
-            Log.Info("Added HelpWindowClass");
         }
 
         Vector2 contractPos;
         Dictionary<string, bool> openClosed = new Dictionary<string, bool>();
 
-        void ContractWindowDisplay(int id)
-        {
-            numDisplayedContracts = 0;
 
-            if (Settings.Instance.activeContracts != null && !settingsVisible)
-            {
-                contractPos = GUILayout.BeginScrollView(contractPos, Settings.Instance.scrollViewStyle, GUILayout.MaxHeight(Screen.height - 20));
-                foreach (var contract in Settings.Instance.activeContracts)
-                {
-                    if (contract.Value.selected)
-                    {
-                        numDisplayedContracts++;
-
-                        string contractId = contract.Key.ToString();
-                        bool requirementsOpen = false;
-                        if (!openClosed.TryGetValue(contractId, out requirementsOpen))
-                        {
-                            openClosed.Add(contractId, requirementsOpen);
-                            requirementsOpen = openClosed[contractId] = true;
-                        }
-                        GUILayout.Space(10);
-                        using (new GUILayout.HorizontalScope())
-                        {
-                            if (GUILayout.Button(requirementsOpen ? "-" : "+", GUILayout.Width(20)))
-                            {
-                                requirementsOpen = !requirementsOpen;
-                                openClosed[contractId] = requirementsOpen;
-                            }
-                            GUILayout.Label(contract.Value.contractContainer.Title, Settings.Instance.largeDisplayFont);
-                            //GUILayout.TextField("Guid: " + contract.Value.contractContainer.ID, Settings.Instance.displayFont);
-                        }
-
-                        if (Settings.Instance.showBriefing && openClosed[contractId])
-                        {
-                            using (new GUILayout.HorizontalScope())
-                            {
-                                GUILayout.Space(30);
-                                GUILayout.TextArea(contract.Value.contractContainer.Briefing, Settings.Instance.textAreaFont);
-                            }
-                        }
-                        if (requirementsOpen)
-                        {
-                            bool partsFound = false;
-                            foreach (var expPartAll in experimentParts)
-                            {
-                                var expPart = expPartAll.Value;
-                                if (expPart.contractGuid == contract.Value.contractContainer.ID)
-                                {
-                                    using (new GUILayout.HorizontalScope())
-                                    {
-                                        GUILayout.Space(30);
-                                        if (expPart.scanSatPart)
-                                            GUILayout.Label(htmlPaleblue + "Experiment:  " + expPart.scanType.ToString() + "</color>", Settings.Instance.displayFont);
-                                        else
-                                            GUILayout.Label(htmlPaleblue + "Experiment:  " + expPart.experimentTitle + "</color>", Settings.Instance.displayFont);
-                                    }
-#if true
-                                    if (expPart.parts.Count == 0)
-                                    {
-                                        using (new GUILayout.HorizontalScope())
-                                        {
-                                            GUILayout.Space(30);
-                                            GUILayout.Label(htmlPaleblue + "No Parts Needed" + "</color>", Settings.Instance.displayFont);
-
-                                        }
-                                    }
-                                    else
-#endif
-                                    {
-#if false
-                                        using (new GUILayout.HorizontalScope())
-                                        {
-                                            GUILayout.Space(30);
-                                            GUILayout.Label(htmlPaleblue + "expPart count:" + expPart.parts.Count + "</color>", Settings.Instance.displayFont);
-                                        }
-#endif
-                                        partsFound = true;
-                                        using (new GUILayout.HorizontalScope())
-                                        {
-                                            GUILayout.Space(30);
-                                            GUILayout.Label(htmlPaleblue + "Fulfilling Parts:" + "</color>", Settings.Instance.displayFont);
-                                        }
-                                        for (int i = 0; i < expPart.parts.Count; i++)
-                                        {
-                                            AvailPartWrapper part = expPart.parts[i];
-
-                                            if (part.part.category != PartCategories.none && part.partTitle != "")
-                                            {
-                                                using (new GUILayout.HorizontalScope())
-                                                {
-                                                    GUILayout.Space(40);
-                                                    if (part.numAvailable == 0)
-                                                        GUILayout.Label(htmlRed + part.partTitle + "</color>", Settings.Instance.displayFont);
-                                                    else
-                                                        GUILayout.Label(htmlGreen + part.partTitle + " (" + part.numAvailable + ")"
-                                                            + "</color>", Settings.Instance.displayFont);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                            }
-
-
-                            if (!partsFound)
-                            {
-                                using (new GUILayout.HorizontalScope())
-                                {
-                                    GUILayout.Space(30);
-                                    GUILayout.Label(htmlPaleblue + "No Parts Needed" + "</color>", Settings.Instance.displayFont);
-                                }
-                            }
-                        }
-                    }
-                }
-                GUILayout.EndScrollView();
-            }
-            contractText = (numDisplayedContracts != 1) ? "Contracts" : "Contract";
-
-            if (settingsVisible)
-            {
-                bool oBold = Settings.Instance.bold;
-                var oAlpha = Settings.Instance.Alpha;
-                GUILayout.Space(30);
-                using (new GUILayout.HorizontalScope())
-                {
-                    // This stupidity is due to a bug in the KSP skin
-                    Settings.Instance.showBriefing = GUILayout.Toggle(Settings.Instance.showBriefing, "");
-                    GUILayout.Label("Display Briefing");
-                    GUILayout.FlexibleSpace();
-                    Settings.Instance.bold = GUILayout.Toggle(Settings.Instance.bold, "");
-                    GUILayout.Label("Bold");
-                    GUILayout.FlexibleSpace();
-                    Settings.Instance.lockPos = GUILayout.Toggle(Settings.Instance.lockPos, "");
-                    GUILayout.Label("Lock Position");
-                    GUILayout.FlexibleSpace();
-                    Settings.Instance.hideButtons = GUILayout.Toggle(Settings.Instance.hideButtons, "");
-                    GUILayout.Label("Hide Buttons");
-                }
-                using (new GUILayout.HorizontalScope())
-                {
-                    Settings.Instance.enableClickThrough = GUILayout.Toggle(Settings.Instance.enableClickThrough, "");
-                    GUILayout.Label("Allow click-through");
-                    GUILayout.FlexibleSpace();
-                    Settings.Instance.initialShowAll = GUILayout.Toggle(Settings.Instance.initialShowAll, "");
-                    GUILayout.Label("Show all active contracts upon entry");
-                    GUILayout.FlexibleSpace();
-                }
-#if true
-                using (new GUILayout.HorizontalScope())
-                {
-                    Settings.Instance.reopenIfLastOpen = GUILayout.Toggle(Settings.Instance.reopenIfLastOpen, "");
-                    GUILayout.Label("Reopen when entering editor");
-                    GUILayout.FlexibleSpace();
-                }
-#endif
-                using (new GUILayout.HorizontalScope())
-                {
-                    Settings.Instance.checkForMissingBeforeLaunch = GUILayout.Toggle(Settings.Instance.checkForMissingBeforeLaunch, "");
-                    GUILayout.Label("Check For Missing Experiments Before Launch");
-                    GUILayout.FlexibleSpace();
-
-                    Settings.Instance.onlyCheckSelectedContracts = GUILayout.Toggle(Settings.Instance.onlyCheckSelectedContracts, "");
-                    GUILayout.Label("Only Check Selected Contracts");
-                    GUILayout.FlexibleSpace();
-                }
-
-                using (new GUILayout.HorizontalScope())
-                {
-                    GUILayout.Label("Transparency:", GUILayout.Width(130));
-                    Settings.Instance.Alpha = GUILayout.HorizontalSlider(Settings.Instance.Alpha, 0f, 255f, GUILayout.Width(130));
-                    GUILayout.FlexibleSpace();
-                    GUILayout.Label("Hide Time (" + Settings.Instance.HideTime.ToString("F0") + "s):");
-                    Settings.Instance.HideTime = GUILayout.HorizontalSlider(Settings.Instance.HideTime, 1f, 30, GUILayout.Width(130));
-                    GUILayout.FlexibleSpace();
-                }
-                if (oAlpha != Settings.Instance.Alpha)
-                {
-                    SetAlpha(Settings.Instance.Alpha);
-                }
-                var oFontSize = Settings.Instance.fontSize;
-                using (new GUILayout.HorizontalScope())
-                {
-                    GUILayout.Label("Font Size:", GUILayout.Width(130));
-                    Settings.Instance.fontSize = GUILayout.HorizontalSlider(Settings.Instance.fontSize, 8f, 30f, GUILayout.Width(130));
-                    GUILayout.FlexibleSpace();
-                }
-                if (oFontSize != Settings.Instance.fontSize || oBold != Settings.Instance.bold)
-                    SetFontSizes(Settings.Instance.fontSize, Settings.Instance.bold);
-
-
-
-
-            }
-
-            if (!Settings.Instance.hideButtons || settingsVisible || numDisplayedContracts == 0)
-            {
-                GUILayout.FlexibleSpace();
-                using (new GUILayout.HorizontalScope())
-                {
-                    if (!settingsVisible)
-                    {
-                        GUILayout.FlexibleSpace();
-                        if (GUILayout.Button("Contract Selection", GUILayout.Width(150)))
-                        {
-                            selectVisible = true;
-
-                            if (Settings.Instance.activeContracts == null)
-                            {
-                                Log.Error("activeContracts is null");
-                                Settings.Instance.activeContracts = new Dictionary<Guid, Contract>();
-                            }
-                        }
-                        GUILayout.FlexibleSpace();
-                        if (GUILayout.Button("Close", GUILayout.Width(90)))
-                        {
-                            GUIToggle();
-                        }
-                    }
-                    GUILayout.FlexibleSpace();
-
-                    if (GUILayout.Button(settingsVisible ? "Close Settings" : "Settings", GUILayout.Width(110)))
-                    {
-                        settingsVisible = !settingsVisible;
-                        if (!settingsVisible)
-                        {
-                            Settings.Instance.SaveData();
-                            //Settings.Instance.failToWrite = false;
-                        }
-                    }
-                    GUILayout.FlexibleSpace();
-                    //GUILayout.Space(30);
-                }
-            }
-            if (GUI.Button(new Rect(4, 2, 24, 24), "B"))
-            {
-                Settings.Instance.hideButtons = !Settings.Instance.hideButtons;
-            }
-            if (GUI.Button(new Rect(26, 2, 24, 24), "L"))
-            {
-                Settings.Instance.lockPos = !Settings.Instance.lockPos;
-            }
-            if (GUI.Button(new Rect(52, 2, 24, 24), "S"))
-            {
-                settingsVisible = !settingsVisible;
-            }
-
-            if (GUI.Button(new Rect(Settings.Instance.winPos.width - 24 - 2, 2, 24, 24), "X"))
-            {
-                GUIToggle();
-            }
-            if (GUI.Button(new Rect(Settings.Instance.winPos.width - 48 - 4, 2, 24, 24), "H"))
-            {
-                quickHideEnd = Time.realtimeSinceStartup + Settings.Instance.HideTime;
-            }
-            if (GUI.Button(new Rect(Settings.Instance.winPos.width - 72 - 6, 2, 24, 24), "?"))
-            {
-                ShowHelpWindow();
-            }
-
-            if (!Settings.Instance.lockPos)
-            {
-                if (GUI.RepeatButton(new Rect(Settings.Instance.winPos.width - 23f, Settings.Instance.winPos.height - 24f, 24, 24), "", Settings.Instance.resizeButton))
-                {
-                    resizingWindow = true;
-                }
-            }
-            resizeWindow();
-            GUI.DragWindow();
-        }
-
-        private void resizeWindow()
-        {
-            if (Input.GetMouseButtonUp(0))
-            {
-                resizingWindow = false;
-            }
-
-            if (resizingWindow)
-            {
-                Settings.Instance.winPos.width = Input.mousePosition.x - Settings.Instance.winPos.x + 10;
-                Settings.Instance.winPos.width = Mathf.Clamp(Settings.Instance.winPos.width, Settings.WINDOW_WIDTH, Screen.width);
-                Settings.Instance.winPos.height = (Screen.height - Input.mousePosition.y) - Settings.Instance.winPos.y + 10;
-                Settings.Instance.winPos.height = Mathf.Clamp(Settings.Instance.winPos.height, Settings.WINDOW_HEIGHT, Screen.height);
-            }
-        }
 
         static internal void SetFontSizes(float fontSize, bool bold)
         {
+            //Log.Info("SetFontSizes, fontSize: " + fontSize + ", font: " + Settings.Instance.settingsDisplayFont.font.name);
 
             Settings.Instance.largeDisplayFont.fontSize = (int)fontSize + 2;
             Settings.Instance.largeDisplayFont.fontStyle = FontStyle.Bold; // bold ? FontStyle.Bold : FontStyle.Normal;
-            Settings.Instance.largeDisplayFont.normal.textColor = Color.yellow;
+            //Settings.Instance.largeDisplayFont.normal.textColor = Color.yellow;
             Settings.Instance.largeDisplayFont.border = new RectOffset();
             Settings.Instance.largeDisplayFont.padding = new RectOffset();
             Settings.Instance.largeDisplayFont.alignment = TextAnchor.LowerLeft;
-
+#if true
             Settings.Instance.displayFont.fontSize = (int)fontSize;
             Settings.Instance.displayFont.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
-            Settings.Instance.displayFont.normal.textColor = Color.yellow;
+            //Settings.Instance.displayFont.normal.textColor = Color.yellow;
             Settings.Instance.displayFont.border = new RectOffset();
             Settings.Instance.displayFont.padding = new RectOffset();
 
+            Settings.Instance.displayFontGreen.fontSize = (int)fontSize;
+            Settings.Instance.displayFontGreen.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
+            //Settings.Instance.displayFontGreen.normal.textColor = Color.green;
+            Settings.Instance.displayFontGreen.border = new RectOffset();
+            Settings.Instance.displayFontGreen.padding = new RectOffset();
+
+            Settings.Instance.displayFontCyan.fontSize = (int)fontSize;
+            Settings.Instance.displayFontCyan.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
+            //Settings.Instance.displayFontCyan.normal.textColor = Color.cyan;
+            Settings.Instance.displayFontCyan.border = new RectOffset();
+            Settings.Instance.displayFontCyan.padding = new RectOffset();
+
+            Settings.Instance.displayFontRed.fontSize = (int)fontSize;
+            Settings.Instance.displayFontRed.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
+            //Settings.Instance.displayFontCyan.normal.textColor = Color.Red;
+            Settings.Instance.displayFontRed.border = new RectOffset();
+            Settings.Instance.displayFontRed.padding = new RectOffset();
+
+
+#endif
+
+            Settings.Instance.settingsDisplayFont.fontSize = (int)fontSize;
+            Settings.Instance.settingsToggleDisplayFont.fontSize = (int)fontSize;
+
+            //Settings.Instance.settingsFontSizeDisplayFont.fontSize = (int)fontSize;
+
+
+            Settings.Instance.launchCheckDisplayFont.fontSize = (int)fontSize;
+            Settings.Instance.launchCheckDisplayFont.fontStyle = FontStyle.Normal;
+
+            Settings.Instance.launchCheckDisplayFont.border = new RectOffset();
+            Settings.Instance.launchCheckDisplayFont.padding = new RectOffset();
+
+            Settings.Instance.launchCheckDisplayFontRed.fontSize = (int)fontSize;
+            Settings.Instance.launchCheckDisplayFontRed.border = new RectOffset();
+            Settings.Instance.launchCheckDisplayFontRed.padding = new RectOffset();
+            Settings.Instance.launchCheckDisplayFontRed.fontStyle = FontStyle.Bold;
+
+
+
             //Settings.Instance.displayFont.normal.background,
 
-#if false
-            Texture2D sortBackground = new Texture2D(1, 1);
-            sortBackground.SetPixel(1, 1, XKCDColors.OffWhite);
-            sortBackground.Apply();
-
-            Settings.Instance.displayFont.onFocused.background =
-            Settings.Instance.displayFont.onNormal.background =
-            Settings.Instance.displayFont.onHover.background =
-            Settings.Instance.displayFont.active.background =
-            Settings.Instance.displayFont.focused.background =
-            Settings.Instance.displayFont.hover.background =
-            Settings.Instance.displayFont.normal.background = sortBackground; // SetImageAlpha(Settings.Instance.displayFont.normal.background, 1);
-#endif
             //Settings.Instance.scrollViewStyle = Settings.Instance.displayFont;
             //Settings.Instance.displayFont.padding = new RectOffset();
 
             Settings.Instance.textAreaFont.fontSize = (int)fontSize;
             Settings.Instance.textAreaFont.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
-            Settings.Instance.textAreaFont.normal.textColor = Color.white;
+            //Settings.Instance.textAreaFont.normal.textColor = Color.white;
 
             Settings.Instance.textAreaSmallFont.fontSize = (int)fontSize - 2;
             Settings.Instance.textAreaSmallFont.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
             Settings.Instance.textAreaSmallFont.richText = true;
-            Settings.Instance.textAreaSmallFont.normal.textColor = Color.white;
+            //Settings.Instance.textAreaSmallFont.normal.textColor = Color.white;
         }
 
 #if true
@@ -1506,6 +1381,105 @@ namespace WhatDoINeed
 #endif
 
         static float lastAlpha = -1;
+
+        internal enum Fade { decreasing, increasing, faded, none };
+        static Fade fadeStatus = Fade.none;
+        internal static Fade FadeStatus
+        {
+            get { return fadeStatus; }
+            set
+            {
+                fadeStatus = value;
+                switch (FadeStatus)
+                {
+                    case Fade.decreasing:
+                        alphaFade = 1; break;
+                    case Fade.increasing:
+                        alphaFade = 0; break;
+                }
+            }
+        }
+        static float alphaFade = -1;
+        static float buttonAlpha = 1;
+        const float fadeStep = 0.02f;
+
+        internal void DoFade()
+        {
+            switch (FadeStatus)
+            {
+                case Fade.decreasing:
+                    {
+                        alphaFade -= fadeStep;
+                        SetAllAlpha();
+                        if (alphaFade <= 0)
+                            fadeStatus = Fade.faded;
+                        Color temp = GUI.color;
+                        temp.a = alphaFade;
+                        GUI.color = temp;
+                        buttonAlpha = alphaFade;
+                    }
+                    break;
+                case Fade.increasing:
+                    {
+                        alphaFade += fadeStep;
+                        SetAllAlpha();
+                        if (alphaFade >= 1)
+                        {
+                            fadeStatus = Fade.none;
+                        }
+                        Color temp = GUI.color;
+                        temp.a = alphaFade;
+                        GUI.color = temp;
+                        buttonAlpha = alphaFade;
+                    }
+                    break;
+            }
+        }
+
+        public void SetButtonAlpha()
+        {
+            Color temp = GUI.color;
+            temp.a = buttonAlpha;
+            GUI.color = temp;
+        }
+
+        void SetAllAlpha()
+        {
+            alphaFade = Mathf.Clamp(alphaFade, 0f, 1f);
+            float realAlpha = alphaFade * lastAlpha;
+
+
+            SetAlphaFor(1, realAlpha, Settings.Instance.kspWindow, HighLogic.Skin.window.active.background, Settings.Instance.kspWindow.active.textColor);
+
+            SetFontAlpha(ref Settings.Instance.largeDisplayFont);
+            SetFontAlpha(ref Settings.Instance.displayFont);
+            SetFontAlpha(ref Settings.Instance.displayFontCyan);
+            SetFontAlpha(ref Settings.Instance.displayFontRed);
+            SetFontAlpha(ref Settings.Instance.displayFontOrange);
+            SetFontAlpha(ref Settings.Instance.displayFontGreen);
+            SetFontAlpha(ref Settings.Instance.textAreaFont);
+            SetFontAlpha(ref Settings.Instance.textAreaSmallFont);
+            SetFontAlpha(ref Settings.Instance.settingsDisplayFont);
+            SetFontAlpha(ref Settings.Instance.settingsToggleDisplayFont);
+            SetFontAlpha(ref Settings.Instance.settingsFontSizeDisplayFont);
+
+
+            SetFontAlpha(ref Settings.Instance.buttonFont);
+            SetFontAlpha(ref Settings.Instance.resizeButton);
+
+        }
+
+        public void SetFontAlpha(ref GUIStyle font)
+        {
+            Color c = font.normal.textColor;
+            c.a = alphaFade;
+            font.normal.textColor = c;
+            font.hover.textColor = c;
+            font.active.textColor = c;
+            font.focused.textColor = c;
+
+        }
+
         internal static void SetAlpha(float Alpha)
         {
             GUIStyle workingWindow;
@@ -1514,7 +1488,7 @@ namespace WhatDoINeed
             lastAlpha = Alpha;
             if (Settings.Instance.kspWindow.active.background == null)
             {
-                Log.Info("SetAlpha, Settings.Instance.kspWindow.active.background is null");
+                //Log.Info("SetAlpha, Settings.Instance.kspWindow.active.background is null");
                 //Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(GUI.skin.window.active.background);
                 Settings.Instance.kspWindow.active.background = GUISkinCopy.CopyTexture2D(HighLogic.Skin.window.active.background);
             }
@@ -1528,12 +1502,12 @@ namespace WhatDoINeed
             //SetAlphaFor(5, Alpha, Settings.Instance.scrollViewStyle, GUI.skin.scrollView.normal.background, workingWindow.active.textColor);
         }
 
-        static void SetAlphaFor(int id, float Alpha, GUIStyle style, Texture2D backgroundTexture, Color color)
+        public static void SetAlphaFor(int id, float Alpha, GUIStyle style, Texture2D backgroundTexture, Color color)
         {
-            Log.Info("SetAlphafor, id: " + id);
             if (backgroundTexture == null)
             {
-                Log.Info("SetAlphaFor, Null backgroundTexture, id: " + id);
+                Log.Error("SetAlphaFor, Null backgroundTexture, id: " + id);
+                return;
             }
             Texture2D copyTexture = GUISkinCopy.CopyTexture2D(backgroundTexture);
 
@@ -1569,55 +1543,6 @@ namespace WhatDoINeed
         }
 
 
-        void SelectContractWindowDisplay(int id)
-        {
-            Guid? keyToRemove = null;
-            GUIStyle toggleStyle = new GUIStyle(GUI.skin.toggle);
-            toggleStyle.alignment = TextAnchor.UpperLeft;
-            using (new GUILayout.VerticalScope())
-            {
-                GUILayout.Label("Click on contract to enable", Settings.Instance.largeDisplayFont);
-                GUILayout.Space(15);
-                scrollPos = GUILayout.BeginScrollView(scrollPos, Settings.Instance.scrollViewStyle);
 
-                foreach (var a in Settings.Instance.activeContracts)
-                {
-                    using (new GUILayout.HorizontalScope())
-                    {
-                        //a.Value.selected = GUILayout.Toggle(a.Value.selected, "", toggleStyle);
-                        //GUILayout.Label(a.Value.contractContainer.Title, Settings.Instance.largeDisplayFont);
-                        if (GUILayout.Button((a.Value.selected ? htmlGreen : htmlRed) + a.Value.contractContainer.Title + "</color>", Settings.Instance.largeDisplayFont))
-                            a.Value.selected = !a.Value.selected;
-                        GUILayout.FlexibleSpace();
-                    }
-                }
-                GUILayout.EndScrollView();
-                using (new GUILayout.HorizontalScope())
-                {
-                    GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("Select All", GUILayout.Width(90)))
-                    {
-                        foreach (var a in Settings.Instance.activeContracts)
-                            a.Value.selected = true;
-                    }
-                    GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("Clear All", GUILayout.Width(90)))
-                    {
-                        foreach (var a in Settings.Instance.activeContracts)
-                            a.Value.selected = false;
-                    }
-                    GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("Accept", GUILayout.Width(90)))
-                    {
-                        selectVisible = false;
-                        Settings.Instance.ResetWinPos();
-                    }
-                    GUILayout.FlexibleSpace();
-                }
-            }
-            if (keyToRemove != null)
-                Settings.Instance.activeContracts.Remove((Guid)keyToRemove);
-            GUI.DragWindow();
-        }
     }
 }

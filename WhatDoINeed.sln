@@ -15,6 +15,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		jenkins.txt = jenkins.txt
 		License.md = License.md
 		Readme.md = Readme.md
+		repository.docx = repository.docx
 		TODO.txt = TODO.txt
 		WhatDoINeed.version = WhatDoINeed.version
 	EndProjectSection

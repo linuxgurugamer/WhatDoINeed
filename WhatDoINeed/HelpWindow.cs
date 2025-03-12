@@ -42,7 +42,7 @@ namespace WhatDoINeed
 
         public void OnGUI()
         {
-            if (windowStyle == null)
+            if (windowStyle == null )
             {
                 GUI.color = Color.grey;
                 windowStyle = new GUIStyle(HighLogic.Skin.window);
@@ -150,7 +150,7 @@ namespace WhatDoINeed
             int imgcnt = 0;
             string l = "";
 
-            if (GUI.Button(new Rect(helpWindow.width - 24 - 2, 2, 24, 24), "X"))
+            if (GUI.Button(new Rect(helpWindow.width - 24 - 2, 2, 24, 24), "X", Settings.Instance.buttonFont))
             {
                 Destroy(this);
             }
@@ -204,7 +204,7 @@ namespace WhatDoINeed
             GUILayout.FlexibleSpace();
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("OK", GUILayout.Width(120)))
+            if (GUILayout.Button("OK", Settings.Instance.buttonFont, GUILayout.Width(120)))
             {
                 Destroy(this);
             }

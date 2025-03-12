@@ -1,5 +1,32 @@
 TODO
 
+Bugs
+
+Contract selection window expands continuuelly when font is too big
+
+when two parts are selected in a PartRequestParameter, shows as not fulfilled
+
+
+ Probably worth writing a disclaimer on the mod's forum thread and Help screen to advise users of the limitations, e.g. no rescue contracts and the like.
+
+
+TODO Next version
+	Add a blacklist which will contain the following:
+					flag
+                    kerbal
+                    launchClamp1
+		and any other parts which need to be ignored
+
+Additions/changes
+
+
+See if a longer description of the DM contracts can be shown instead of the internal name (ie:  DMMagneticSurveyContract)
+
+
+
+Since your initial help screen size is fixed, consider NOT wrapping the text for the function descriptions.  Easier to read, and the window can be shorter.  Or, make the window sizable.
+
+
 Test following mods:
 
 	Orbital Survey Plus  https://forum.kerbalspaceprogram.com/topic/109207-112x-orbital-survey-plus-v236/page/9/

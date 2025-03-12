@@ -47,3 +47,116 @@
 	Fixed exceptions when placing first part
 	Fixed the initialShowAll to look at all contracts if no contracts are selected
 	Added support for Rover Science (latest release)
+
+0.0.3.2
+	Adjusted colors again
+	Changed selection window so that it shows along with the main window, instead of replacing it
+	Added support for ContractConfigurator Filter section (Added check for parts, and for both parts &  partModules now looks for multiple entries in the filter)
+	Changed settings from being saved to file to being saved in game file as a scenario
+	Total rewrite of internal structure 
+
+0.0.3.3
+	Rewrote Contract Display Window to allow scanning of contracts before displaying them, needed to enable the launch button check to work again
+	Redid where the settings are saved.  Now saves all non-game-specific settings to a local config file, saves the selected contracts in the game persistent.sfs file
+	Fixed the saving of the window posiiton
+	Fixed the Reopen when entering editor
+	Fixed scanning of ship after being loaded in editor (also after starting a new ship)
+	Removed the number of scans of ship
+	Added a filter to only show contracts which require a new vessel
+	Changed display as follows:
+		1.  Experiments are shown in either red or green, green meaning the necessary parts are there
+		2.  Parts are shown in cyan.  A check mark will be placed next to parts which are on the vessel
+		3.  The unnecessary line saying required parts/modules has been removed
+	Added wrapping of the contract titles
+	Optimized window display to reduce processing time
+	Added resizing handle for Contract Selection Window
+	Fixed resizing of width for main window
+
+0.0.3.4
+	Fixed parts with category = none causing a keynotfound exception
+	Fixed the over-optimized calls which were preventing the screen from updating properly
+
+0.0.3.5
+	Improved the summary in the Unfullfillable  Contracts dialog:
+		List # contracts which have all requirements
+		List # of contracts which are  missing requirements
+
+0.0.3.6
+	Added code to save the selection window position to the file
+	Remove number of missing parts from the pre-launch warning
+	Make lock position setting apply to the contract selection window
+	Make settings into new window
+	Removed the Hide Buttons setting
+	Changed the contract selection window to it's own monobehaviour
+
+0.0.3.7
+	Updated title of settings window
+	Add code to preprocess part title, deleting anything for "<color" to the end (needed for @zer0Kerbal's mods)
+	Make H hide all windows
+	Fix title of the  "Active Contracts" window.
+	Make the "Close Settings" button on the Settings window should width-centered.
+	Adjusted the size of the Close Contract Selection button
+
+0.0.3.8
+	Improved descriptions for ScanSat scans
+	Made fonts in the Settings window adjust according to the font size settings
+	Added wordwrapping to the Contract Title and briefing notes in the Active Contracts window
+	Replaced launch dialog with Monobehavour window
+	Launch Check window now always stays on top
+	Reduced size of Contract Selection Window data lines
+	Added bullet to beginning of lines in Contract Selection Window
+
+0.0.3.9
+	Fixed Clicking the 'S' button to display the Settings window should change the Settings button on the Active Contracts window to "Close Settings'.
+	Fixed Clicking the 'S' button a second time should close the Settings window.  Currently, you have to close the window by clicking the Settings window's own close button once or the Active Contracts Settings button twice.
+	Added new buttons to expand or collapse all the contracts on the Active Contracts window.  
+	Add a button to show/hide the briefing
+	Added button to contract list for contract to open a nwe PartsWindow, showing requiring parts of a particular type
+
+0.0.3.10
+	Fixed font resizing the the Parts Available window
+	Added new button to Parts Available to either Show Mounted Parts or Show All Parts
+	Added bullet to each line in the Contract Selection window
+	Added ability to spawn part by clicking on part name, both in the partlist and the main window.   If there is a part already selected then the selected part will be deleted and a new part will be created,
+	Added ability to show parts needed for modules in the Active Contracts window, expandable with a +/- button
+	Updated the +/- button to use icon instead of button
+
+0.0.3.11
+	Fixed settings window debug option to have toggle shown.
+	Moved all toggles to the left
+	Fixed settings window font size
+	Added settings window resize ability
+	Adjusted layout of checkbox in Settings window
+	Settings window will now close if all other windows are closed
+	Windows will now fade when a part is spawned.
+	New option added to control hide time when part spawned
+
+0.0.3.12
+	Fix colors in the settings window
+	Fix colors on the launch check window
+	Font slider behaviour fixed, no flickering anymore
+	The text wrapping in the Contract Selection window has been corrected to take into account the scrollbars
+	Clicking on the mod icon now closes all windows
+	When clicking on the toolbar icon a second time, WDIN windows now return to their former state 
+	On the Settings window, the "Check For Missing..." and "Only Check Selected..." are now grouped
+	On the Settings window, the part spawning options are now grouped
+	The "Debug mode" button moved to the bottom
+	The parts in the Parts window are indented again.  The checkmark now back in the resulting margin 
+	The expand/collapse buttons are now indented for the modulesn.
+	Fixed text in Title bar goes blank when not focused.
+
+0.0.3.13
+	Added a checkmark to the appropriate Active Contracts window lines that have Parts buttons, reflecting the presence of a needed part.
+	Swap + and - buttons
+	Filter out launchclamps:  launchClamp1
+
+0.0.3.14
+	Changed filter for launchclamps to look for a module called LaunchClamp
+	Fixed (again) the initial selection of all contracts if none are active
+	Changed display of checkmark to keep text lines aligned
+	Added checkmark to Module line when parts with module exist
+
+0.0.4
+	Fixed the launch clamp filter 
+	Fixed Near Future Exploration antenna parts not showing up in list
+	Fixed Settings window opening upon reopen when it was closed
