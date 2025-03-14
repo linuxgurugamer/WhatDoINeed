@@ -160,3 +160,6 @@
 	Fixed the launch clamp filter 
 	Fixed Near Future Exploration antenna parts not showing up in list
 	Fixed Settings window opening upon reopen when it was closed
+
+0.0.4.1
+	No change, needed for CKAN
