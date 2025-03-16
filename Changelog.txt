@@ -163,3 +163,6 @@
 
 0.0.4.1
 	No change, needed for CKAN
+
+0.0.4.2
+	Removed log spam

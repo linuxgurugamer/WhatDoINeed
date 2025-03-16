@@ -104,11 +104,11 @@ namespace WhatDoINeed
         {
             if (!Repository.partInfoList.ContainsKey(part.name))
             {
-                Log.Error("********************** vvvvvvvvvvvvvvvv *******************");
+                //Log.Error("********************** vvvvvvvvvvvvvvvv *******************");
                 Log.Error("SetPartOnShip, part not found: " + part.name);
-                foreach (var p in Repository.partInfoList)
-                    Log.Error("p: " + p.Key);
-                Log.Error("********************** ^^^^^^^^^^^^^^^^ *******************");
+                //foreach (var p in Repository.partInfoList)
+                //    Log.Error("p: " + p.Key);
+                //Log.Error("********************** ^^^^^^^^^^^^^^^^ *******************");
                 return;
             }
             Repository.partInfoList[part.name].isOnShip = true;
