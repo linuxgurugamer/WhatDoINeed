@@ -15,7 +15,7 @@ namespace WhatDoINeed
     [KSPAddon(KSPAddon.Startup.EditorAny, false)]
     public partial class WhatDoINeed : MonoBehaviour
     {
-        private static ToolbarControl toolbarControl;
+        internal  static ToolbarControl toolbarControl;
         //internal static ToolbarControl Toolbar { get { return toolbarControl; } }
 
         internal static WhatDoINeed Instance;
@@ -59,12 +59,18 @@ namespace WhatDoINeed
 
         public void Start()
         {
+            Log.Info("WhatDoINeed.Start 1");
             if (!HighLogic.LoadedSceneIsEditor || !(HighLogic.CurrentGame.Mode == Game.Modes.CAREER || HighLogic.CurrentGame.Mode == Game.Modes.SCIENCE_SANDBOX))
             {
                 Log.Info("Sandbox mode, exiting");
+                if (toolbarControl!=null)
+                    toolbarControl.enabled = false;
+                Destroy(this);
                 return;
             }
-
+            Log.Info("WhatDoINeed.Start 2");
+            if (toolbarControl != null)
+                toolbarControl.enabled = true;
             Instance = this;
             scansatAvailable = HasMod.hasMod("SCANsat");
             kisAvailable = KISWrapper.Initialize();

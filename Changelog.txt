@@ -166,3 +166,6 @@
 
 0.0.4.2
 	Removed log spam
+
+0.0.4.3
+	Added code to disable in sandbox mod

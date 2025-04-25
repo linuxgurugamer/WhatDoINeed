@@ -196,7 +196,7 @@ namespace WhatDoINeed
                 {
                     string title = Utility.CleanPartTitle(ap.title);
                     string str = title;
-                    bool isCheckmark = false;
+                    //bool isCheckmark = false;
                     if (Repository.partInfoList.ContainsKey(ap.name))
                     {
                         if (Repository.partInfoList[ap.name].numAvailable > 0)
