@@ -169,3 +169,6 @@
 
 0.0.4.3
 	Added code to disable in sandbox mod
+
+0.0.4.4
+	Added code to deal with the CollectScienceCustom parameter, which is used to gather the same science in multiple locations in a single contract

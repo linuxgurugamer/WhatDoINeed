@@ -15,7 +15,7 @@ namespace WhatDoINeed
     [KSPAddon(KSPAddon.Startup.EditorAny, false)]
     public partial class WhatDoINeed : MonoBehaviour
     {
-        internal  static ToolbarControl toolbarControl;
+        internal static ToolbarControl toolbarControl;
         //internal static ToolbarControl Toolbar { get { return toolbarControl; } }
 
         internal static WhatDoINeed Instance;
@@ -63,7 +63,7 @@ namespace WhatDoINeed
             if (!HighLogic.LoadedSceneIsEditor || !(HighLogic.CurrentGame.Mode == Game.Modes.CAREER || HighLogic.CurrentGame.Mode == Game.Modes.SCIENCE_SANDBOX))
             {
                 Log.Info("Sandbox mode, exiting");
-                if (toolbarControl!=null)
+                if (toolbarControl != null)
                     toolbarControl.enabled = false;
                 Destroy(this);
                 return;
@@ -268,6 +268,8 @@ namespace WhatDoINeed
                 }
                 repository.shipInfo.AddModule(module.moduleName);
 
+                Log.Info("ScanPart, moduleName: " + module.moduleName);
+
                 if (module is ModuleAlternator || module is ModuleDeployableSolarPanel)
                     repository.shipInfo.AddModuleType("Generator");
                 if (module is ModuleGrappleNode)
@@ -312,6 +314,7 @@ namespace WhatDoINeed
                 {
                     ScanPart(part);
                     SetPartOnShip(part);
+                    Log.Info("ScanShip, part: " + part.name);
                 }
             }
 
@@ -558,9 +561,10 @@ namespace WhatDoINeed
                                     if (validContract)
                                         activeLocalContracts.Add(contractGuid);
                                     else
-                                    if (!validContract && Repository.Contracts.ContainsKey(contractGuid))
-                                        Repository.Contracts.Remove(contractGuid);
-
+                                    {
+                                        if (!validContract && Repository.Contracts.ContainsKey(contractGuid))
+                                            Repository.Contracts.Remove(contractGuid);
+                                    }
                                 }
                             }
                         }
@@ -790,11 +794,47 @@ namespace WhatDoINeed
 
                 bool newVesselParamFound = false;
                 Log.Info("ProcessConfigNode, contractGuid: " + contractGuid + ", name: " + param_name + ", type: " + param_type);
+                if (experiment != null)
+                    Log.Info("experiment: " + experiment);
 
-                if (experiment == null)
+
+                if (experiment == null || param_name == "CollectScienceCustom")
                 {
                     switch (param_name)
                     {
+                        case "HasAntenna":
+                            Log.Info("HasAntenna found");
+                           
+                            break;
+                        case "VesselParameterGroup":
+                            {
+                                var p = param.GetNodes("PARAM");
+                                foreach (var p1 in p)
+                                {
+                                    string name = p1.GetValue("name");
+                                    if (name == "HasAntenna")
+                                    {
+                                        Log.Info("HasAntenna found");
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+
+                        case "CollectScienceCustom": // BlueDog Bureau
+                            validContract = true;
+                            var exps = param.GetValuesList("experiment");
+                            Log.Info("CollectScienceCustom, numExps: " + exps.Count);
+                            for (int i = 0; i < exps.Count; i++)
+                            {
+                                var ckt = new CEP_Key_Tuple(exps[i], contractGuid);
+                                Log.Info("ckt: " + ckt);
+                                repository.AddExperimentToContract(contractGuid, ckt.Key(), new Experiment(1, ckt));
+
+                            }
+                            experiment = "";
+
+                            break;
                         case "NewVessel":
                             newVesselParamFound = true;
                             break;

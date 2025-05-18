@@ -13,6 +13,9 @@ set H1=R:\KSP_1.12.5-CenturianMaximus
 set H2=R:\KSP_1.12.5_Career-MissionController-JNSQ
 set H3=R:\KSP_1.12.5_Candy-Career
 
+set H3=R:\KSP_1.12.5-WhatDoINeed
+
+
 set GAMEDIR=WhatDoINeed
 set GAMEDATA="GameData"
 set VERSIONFILE=%GAMEDIR%.version

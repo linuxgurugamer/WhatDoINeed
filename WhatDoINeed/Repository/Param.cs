@@ -13,11 +13,11 @@ namespace WhatDoINeed
     {
         public string Key { get; set; }
         public string Value { get; set; }
-
         public string KerbalName { get; set; }
         public string scanName { get; set; }                            // SCANsatCoverage
         public SCANsatSCANtype scanType { get; set; } = SCANsatSCANtype.Nothing;                       // SCANsatCoverage
         public string experimentType { get; set; }                      // StnSciParameter
+        public string experiment { get; set; }                          // BlueDog
         public string subjectId { get; set; }                           // Deployed science
         public List<Filter> Filters { get; set; } = new List<Filter>(); // PartValidation
 

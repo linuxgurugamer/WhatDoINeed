@@ -243,7 +243,7 @@ namespace WhatDoINeed
                             switch (name)
                             {
                                 case "ModuleScienceExperiment":     // All of these use the experimentID to define the experiment
-                                case "ModuleGroundExperiment":
+                                case "ModuleGroundExperiment":      
                                 case "DMAnomalyScanner":
                                 case "DMAsteroidScanner":
                                 case "DMBathymetry":
@@ -274,6 +274,7 @@ namespace WhatDoINeed
                                         modules[j].TryGetValue("experimentID", ref experimentID);
                                         if (experimentID == null)
                                             modules[j].TryGetValue("experimentId", ref experimentID); // Needed for ModuleGroundExperiment
+
                                         if (experimentID != null)
                                         {
                                             if (!Repository.allExperimentParts.ContainsKey(experimentID))

@@ -37,6 +37,21 @@ namespace WhatDoINeed
         {
             switch (param.Key)
             {
+#if false
+                case "CollectScienceCustom": // BlueDog Bureau
+                    Log.Info("GetParamDescr, CollectScienceCustom, experiment: " + param.experiment);
+                    return param.experiment;
+                    switch (param.experiment)
+                    {
+                        case "bd_cosmicRay":
+
+                        case "bd_mapping":
+
+                        case "bd_surveillance":
+                            break;
+                    }
+                    break;
+#endif
                 case "SCANsatCoverage": // For SCANsat
                     switch (param.scanName)
                     {
@@ -131,7 +146,7 @@ namespace WhatDoINeed
 #if NO_DISPLAY_DEBUG
             debug = "";
 #endif
-            DisplayModuleButton(10, 27, (cm.expanded ? minusIcon : plusIcon), 20,  debug + " Module: " + debug + " " + str, showCheckmark, contract, contractId, ref cm);
+            DisplayModuleButton(10, 27, (cm.expanded ? minusIcon : plusIcon), 20, debug + " Module: " + debug + " " + str, showCheckmark, contract, contractId, ref cm);
 
         }
 
@@ -239,6 +254,7 @@ namespace WhatDoINeed
 
         int DisplayModule(ref CheckModule cm, KeyValuePair<Guid, ContractWrapper> contract, string contractId)
         {
+            Log.Info("DisplayModule, cm.moduleTypes: " + cm.ModuleTypes);
             bool showCheckmark = CheckPartsForModule(cm.ModuleTypes);
             if (Repository.contractObjectives[cm.ModuleTypes] > 0)
             {
@@ -415,7 +431,7 @@ namespace WhatDoINeed
             displayLines.Add(new DisplayLine(space, buttonStr, width, str, contract, contractId, requirementsOpen, Settings.Instance.largeDisplayFont));
         }
 
-        void DisplayModuleButton(int space, int indent, GUIContent buttonStr, int width, string str, bool showCheckmark,  KeyValuePair<Guid, ContractWrapper> contract, string contractId, ref CheckModule cm)
+        void DisplayModuleButton(int space, int indent, GUIContent buttonStr, int width, string str, bool showCheckmark, KeyValuePair<Guid, ContractWrapper> contract, string contractId, ref CheckModule cm)
         {
             displayLines.Add(new DisplayLine(space, indent, buttonStr, width, str, showCheckmark, contract, contractId, cm.expanded, Settings.Instance.displayFontCyan, ref cm));
         }
@@ -598,6 +614,8 @@ namespace WhatDoINeed
                             if (requirementsOpen)
                             {
                                 var experiments = repository.GetExperimentsInContract(contract.Key);
+                                Log.Info("requirementsOpen, experiments.count: " + experiments.Count);
+
                                 for (int e = 0; e < experiments.Count; e++)
                                 {
                                     Experiment experiment = experiments[e];
@@ -609,9 +627,9 @@ namespace WhatDoINeed
                                     else
                                         DisplayExperiment("2", experiment.ExperimentID, "Experiment:  " + experiment.experimentTitle);
 
+                                    Log.Info("experimentID: " + experiment.ExperimentID);
                                     switch (experimentID)
                                     {
-
                                         case "PartTest":
                                         case "ConstructionParameter":
                                             {
@@ -628,14 +646,15 @@ namespace WhatDoINeed
                                             break;
                                         default:
                                             {
-                                                if (Repository.allExperimentParts.ContainsKey(experimentID))
+                                                if (Repository.allExperimentParts.ContainsKey(experiment.ExperimentID))
                                                 {
-                                                    foreach (var part in Repository.allExperimentParts[experimentID].parts)
+                                                    foreach (var part in Repository.allExperimentParts[experiment.ExperimentID].parts)
                                                         DisplayPart(experiment.ExperimentID, part);
                                                 }
                                                 else
                                                 {
-                                                    DisplayUnfilledPart("19", experimentID + " missing", false);
+                                                    DisplayUnfilledPart("19", experiment.ExperimentID + " missing", false);
+        
                                                 }
                                                 break;
                                             }
@@ -687,11 +706,11 @@ namespace WhatDoINeed
                                         var part = param.RequestedParts[p];
                                         cnt += DisplayPart(param.Key, false, part);
                                     }
-                                    
+
                                     for (int p = 0; p < param.PartNames.Count; p++)
                                     {
                                         var str = param.PartNames[p];
-                                        avail = (DisplayPart(param.Key, false, str) >0);
+                                        avail = (DisplayPart(param.Key, false, str) > 0);
                                     }
                                     cnt += (avail ? 1 : 0);
                                     for (int cmi = 0; cmi < param.CheckModules.Count; cmi++)

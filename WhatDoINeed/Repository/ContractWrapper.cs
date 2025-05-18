@@ -62,7 +62,7 @@ namespace WhatDoINeed
             Params.Add(param);
         }
 
-
+#if false
         /// <summary>
         /// Adds a PartGroupWrapper to the contract.
         /// </summary>
@@ -114,6 +114,7 @@ namespace WhatDoINeed
                 throw new Exception($"A needed part group with the key '{groupKey}' already exists in the contract.");
             NeededParts[groupKey] = parts.ToList();
         }
+#endif
 
         /// <summary>
         /// Adds a single needed part to the contract's NeededParts dictionary.

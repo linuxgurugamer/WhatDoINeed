@@ -1,5 +1,4 @@
-﻿using ContractParser;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -115,9 +114,10 @@ namespace WhatDoINeed
             if (Contracts.ContainsKey(contract.Id))
                 throw new Exception("A contract with the same ID already exists.");
             Contracts[contract.Id] = contract;
-           //RegisterToolbar.Log.Info("AddContract, contract ID: " + contract.Id);
+            //RegisterToolbar.Log.Info("AddContract, contract ID: " + contract.Id);
         }
 
+#if false
         /// <summary>
         /// Add a group of experiments to a contract
         /// </summary>
@@ -135,6 +135,7 @@ namespace WhatDoINeed
 
             contract.ExperimentGroups[groupKey] = experiments.ToList();
         }
+#endif
 
         /// <summary>
         /// Add a single experiment to a contract (adds to an existing group or creates a new one)
@@ -153,7 +154,21 @@ namespace WhatDoINeed
                 contract.ExperimentGroups[groupKey] = new List<Experiment>();
             }
 
-            contract.ExperimentGroups[groupKey].Add(experiment);
+            // Technically, the "found" isn't needed, I could just add a return instead of found = true, but this
+            // keeps the flexibility of being able to add something at the end
+            bool found = false;
+            foreach (var ex in contract.ExperimentGroups[groupKey])
+            {
+                if (ex.ExperimentID == experiment.ExperimentID)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                contract.ExperimentGroups[groupKey].Add(experiment);
+            }
         }
 
 

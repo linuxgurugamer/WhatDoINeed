@@ -1,10 +1,14 @@
 TODO
 
+
+Not identifying when a param HasAntenna is there (needs an antenna)
+Can be inside a VesselParameterGroup
+
 Bugs
 
-Contract selection window expands continuuelly when font is too big
+Contract selection window expands continuuelly when font is too big - need to check
 
-when two parts are selected in a PartRequestParameter, shows as not fulfilled
+when two parts are selected in a PartRequestParameter, shows as not fulfilled - need to check
 
 
  Probably worth writing a disclaimer on the mod's forum thread and Help screen to advise users of the limitations, e.g. no rescue contracts and the like.
