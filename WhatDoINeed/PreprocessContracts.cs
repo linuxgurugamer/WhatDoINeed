@@ -185,7 +185,39 @@ namespace WhatDoINeed
             return 0;
         }
 
+        int DisplayPartGroup(string debug, ContractWrapper contract, string key, string partGroupName)
+        {
+            int cnt = 0;
+#if NO_DISPLAY_DEBUG
+            debug = "";
+#endif
+            if (experimentStatus[key] == 0)
+            {
+                displayLines.Add(new DisplayLine(debug + "Requirement: " +partGroupName, 30, false, null, Settings.Instance.displayFontRed));
+                numUnfillableContracts++;
+                Log.Info("DisplayPartGroup, numUnfillableContracts: " + numUnfillableContracts + ", partGroupName: " + partGroupName);
+            }
+            else
+            {
+                displayLines.Add(new DisplayLine(debug + "Requirement: " + partGroupName, 30, false, null, Settings.Instance.displayFontGreen));
+                numFillableContracts++;
+                Log.Info("DisplayPartGroup, numFillableContracts: " + numFillableContracts + ", partGroupName: " + partGroupName + ", experimentStatus[experimentID]: " + experimentStatus[key]);
+            }
 
+
+            if (contract.NeededParts.ContainsKey(key))
+            {
+                foreach (AvailPartWrapper apw in contract.NeededParts[key])
+                {
+                    cnt += DisplayPart(key, false, apw.NameID);
+                }
+            }
+            else
+            {
+                Log.Error("PartGroup: " + key + " not found in NeededParts");
+            }
+            return cnt;
+        }
         void DisplayModule(string expId, CheckModule cm)
         {
             if (Repository.contractObjectives[cm.ModuleTypes] > 0)
@@ -620,7 +652,7 @@ namespace WhatDoINeed
                                 {
                                     Experiment experiment = experiments[e];
 
-                                    string experimentID = (experiment.scanSatExperiment) ? experiment.scanType.ToString() : experiment.experimentTitle;
+                                    string experimentID = (experiment.scanSatExperiment) ? experiment.scanType.ToString() : experiment.ExperimentID;
 
                                     if (experiment.scanSatExperiment)
                                         DisplayExperiment("1", experiment.ExperimentID, "Experiment:  " + experiment.scanType.ToString());
@@ -646,15 +678,15 @@ namespace WhatDoINeed
                                             break;
                                         default:
                                             {
-                                                if (Repository.allExperimentParts.ContainsKey(experiment.ExperimentID))
+                                                if (Repository.allExperimentParts.ContainsKey(experimentID))
                                                 {
-                                                    foreach (var part in Repository.allExperimentParts[experiment.ExperimentID].parts)
-                                                        DisplayPart(experiment.ExperimentID, part);
+                                                    foreach (var part in Repository.allExperimentParts[experimentID].parts)
+                                                        DisplayPart(experimentID, part);
                                                 }
                                                 else
                                                 {
-                                                    DisplayUnfilledPart("19", experiment.ExperimentID + " missing", false);
-        
+                                                    DisplayUnfilledPart("19", " " + experimentID + " missing", false);
+
                                                 }
                                                 break;
                                             }
@@ -677,8 +709,9 @@ namespace WhatDoINeed
 
                                     foreach (var pg in contract.Value.PartGroups)
                                     {
-                                        string s = pg.Key + " " + pg.Value;
-                                        DisplayUnfilledPart("19", "PartGroup: " + s, false);
+                                        if (!experimentStatus.ContainsKey(pg.Key))
+                                            experimentStatus[pg.Key] = 0;
+                                        experimentStatus[pg.Key] = DisplayPartGroup("19", contract.Value, pg.Key, pg.Value.partGroupName);
                                     }
                                 }
 

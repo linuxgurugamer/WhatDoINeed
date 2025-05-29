@@ -1,5 +1,6 @@
 ﻿using KSP_Log;
 using System;
+using System.Collections.Generic;
 using ToolbarControl_NS;
 using UnityEngine;
 
@@ -188,10 +189,58 @@ namespace WhatDoINeed
                 if (name != null && name.Contains("LaunchClamp"))
                 {
                     Log.Info("LaunchClamp found, bypassing ");
-                    return true;      
+                    return true;
                 }
             }
             return false;
+        }
+
+        internal static List<AvailPartWrapper> allAntennas = new List<AvailPartWrapper>();
+
+        void ScanPartForContractObjective(AvailablePart part, ConfigNode[] modules)
+        {
+#if false
+            if (part.isAntenna(out ModuleDeployableAntenna antenna))
+                repository.shipInfo.AddModuleType("Antenna");
+            if (part.name.ToLower().Contains("battery"))
+                repository.shipInfo.AddModuleType("Battery");
+            if (part.dockingPorts.Count > 0)
+                repository.shipInfo.AddModuleType("Dock");
+#endif
+
+            if (part.partPrefab.HasValidContractObjective("Antenna"))
+            {
+                //repository.shipInfo.AddModuleType("Antenna");
+                bool mdt = false;
+                for (int j = 0; j < modules.Length; j++)
+                {
+                    string name = "";
+                    modules[j].TryGetValue("name", ref name);
+                    if (name.Contains("ModuleDataTransmitter"))
+                    {
+                        string m1 = "";
+                        modules[j].TryGetValue("antennaType", ref m1);
+                        Log.Info("antennaType: " + m1);
+                        mdt = true;
+                        allAntennas.Add(new AvailPartWrapper(part, m1));
+                    }
+                }
+                if (!mdt)
+                    Log.Error("ScanPartforContractObjectives, part: " + part.name + ", antenna found, no ModuleDataTransmitter found");
+            }
+            if (part.partPrefab.HasValidContractObjective("Generator"))
+                repository.shipInfo.AddModuleType("Generator");
+            if (part.partPrefab.HasValidContractObjective("Grapple"))
+                repository.shipInfo.AddModuleType("Grapple");
+            if (part.partPrefab.HasValidContractObjective("Wheel"))
+                repository.shipInfo.AddModuleType("Wheel");
+            if (part.partPrefab.HasValidContractObjective("Laboratory"))
+                repository.shipInfo.AddModuleType("Laboratory");
+            if (part.partPrefab.HasValidContractObjective("Harvester"))
+                repository.shipInfo.AddModuleType("Harvester");
+            if (part.partPrefab.HasValidContractObjective("Greenhouse"))
+                repository.shipInfo.AddModuleType("Greenhouse");
+
         }
 
         /// <summary>
@@ -224,6 +273,8 @@ namespace WhatDoINeed
                             continue;
                         Repository.partInfoList.Add(PartLoader.LoadedPartsList[i].name, new PartInformation(PartLoader.LoadedPartsList[i].name, i));
                     }
+                    ScanPartForContractObjective(PartLoader.LoadedPartsList[i], modules);
+
                     // Now continue with normal checks
                     for (int j = 0; j < modules.Length; j++)
                     {
@@ -243,7 +294,7 @@ namespace WhatDoINeed
                             switch (name)
                             {
                                 case "ModuleScienceExperiment":     // All of these use the experimentID to define the experiment
-                                case "ModuleGroundExperiment":      
+                                case "ModuleGroundExperiment":
                                 case "DMAnomalyScanner":
                                 case "DMAsteroidScanner":
                                 case "DMBathymetry":

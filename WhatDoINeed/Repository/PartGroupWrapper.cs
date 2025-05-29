@@ -13,15 +13,18 @@ namespace WhatDoINeed
     {
         public string partGroupKey { get; set; }
         public int numAvailable { get; set; } = 0;
+        public string partGroupName { get; set; }
 
         /// <summary>
         /// Instantiator for PartGroupWrapper.
         /// </summary>
         /// <param name="partGroupKey">The key identifying the part group.</param>
         /// <param name="numAvailable">The number of parts available in the group (default is 0).</param>
-        public PartGroupWrapper(string partGroupKey, int numAvailable = 0)
+        public PartGroupWrapper(string partGroupKey, string partGroupName, int numAvailable = 0)
         {
+            RegisterToolbar.Log.Info("PartGroupWrapper, partGroupName: " + partGroupName);
             this.partGroupKey = partGroupKey;
+            this.partGroupName = partGroupName;
             this.numAvailable = numAvailable;
         }
 

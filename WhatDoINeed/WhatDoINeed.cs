@@ -233,29 +233,6 @@ namespace WhatDoINeed
 
             repository.shipInfo.AddPart(part.name);
 
-#if false
-            if (part.isAntenna(out ModuleDeployableAntenna antenna))
-                repository.shipInfo.AddModuleType("Antenna");
-            if (part.name.ToLower().Contains("battery"))
-                repository.shipInfo.AddModuleType("Battery");
-            if (part.dockingPorts.Count > 0)
-                repository.shipInfo.AddModuleType("Dock");
-#endif
-
-            if (part.HasValidContractObjective("Antenna"))
-                repository.shipInfo.AddModuleType("Antenna");
-            if (part.HasValidContractObjective("Generator"))
-                repository.shipInfo.AddModuleType("Generator");
-            if (part.HasValidContractObjective("Grapple"))
-                repository.shipInfo.AddModuleType("Grapple");
-            if (part.HasValidContractObjective("Wheel"))
-                repository.shipInfo.AddModuleType("Wheel");
-            if (part.HasValidContractObjective("Laboratory"))
-                repository.shipInfo.AddModuleType("Laboratory");
-            if (part.HasValidContractObjective("Harvester"))
-                repository.shipInfo.AddModuleType("Harvester");
-            if (part.HasValidContractObjective("Greenhouse"))
-                repository.shipInfo.AddModuleType("Greenhouse");
 
             // zzz
 
@@ -362,7 +339,7 @@ namespace WhatDoINeed
 #if !DEBUG
             if (Settings.Instance.debugMode)
 #endif
-            DumpAllScannedData();
+                DumpAllScannedData();
         }
 
         void DumpAllScannedData()
@@ -464,6 +441,21 @@ namespace WhatDoINeed
             foreach (var contract in Settings.Instance.activeContracts)
             {
                 Log.Info("GUID: " + contract.Key.ToString());
+
+                if (!Repository.Contracts.TryGetValue(contract.Key, out ContractWrapper c))
+                    Log.Info("Contract not found in Repository.Contracts");
+                else
+                {
+                    foreach (var n in c.NeededParts)
+                    {
+                        Log.Info("NeededParts group: " + n.Key + ", # parts: " + n.Value.Count);
+                        for (int i = 0; i < n.Value.Count; i++)
+                        {
+                            Log.Info("NeededParts group: " + n.Key + ", part: " + n.Value[i].NameID + ", partTitle: " + n.Value[i].partTitle);
+
+                        }
+                    }
+                }
             }
 #endif
             Log.Info("=====================================");
@@ -769,6 +761,34 @@ namespace WhatDoINeed
             return null;
         }
 
+        void ProcessHasAntenna(ConfigNode node, Guid contractGuid, ref bool validContract)
+        {
+            string title = "Has Antenna";
+            string antennaType = node.GetValue("antennaType");
+            Log.Info("HasAntenna found in VesselParameterGroup, antennatype: " + antennaType);
+            var ckt = new CEP_Key_Tuple("HasAntenna", contractGuid);
+
+            if (antennaType == "EITHER")
+            {
+                repository.AddNeededPartsToContract(contractGuid, ckt.Key(), title, allAntennas);
+            }
+            else
+            {
+                List<AvailPartWrapper> list = new List<AvailPartWrapper>();
+                AntennaType at = AntennaType.DIRECT;
+                if (antennaType == "RELAY")
+                    at = AntennaType.RELAY;
+                for (int i = 0; i < allAntennas.Count; i++)
+                {
+                    if (at == allAntennas[i].antennaType)
+                        list.Add(allAntennas[i]);
+                }
+                repository.AddNeededPartsToContract(contractGuid, ckt.Key(), title, list);
+
+            }
+            validContract = true;
+
+        }
         void ProcessConfigNode(int cnt, ConfigNode contract, string state, Guid contractGuid, string type, ConfigNode param, ref bool validContract)
         {
             string param_name = param.GetValue("name");
@@ -798,13 +818,50 @@ namespace WhatDoINeed
                     Log.Info("experiment: " + experiment);
 
 
-                if (experiment == null || param_name == "CollectScienceCustom")
+                if (experiment == null || param_name == "CollectScienceCustom" | param_name == "SurveyWaypointParameter")
                 {
                     switch (param_name)
                     {
+                        case "TSTScienceParam":         // Tarsier 
+                            Log.Info("TSTScienceParam");
+                            experiment = "";
+                            param.TryGetValue("FIELD", ref experiment);
+                            if (experiment != "")
+                            {
+                                var ckt = new CEP_Key_Tuple(experiment, contractGuid);
+                                Log.Info("ckt: " + ckt.Key() + ", expID: " + ckt.expID + ", contractGuid: " + ckt.contractGuid);
+                                repository.AddExperimentToContract(contractGuid, ckt.Key(), new Experiment(3, ckt));
+
+                                parameter = new Param(param_name, 1, param_name);
+                                parameter.subjectId = param_name;
+                                validContract = true;
+                                experiment = "";
+
+                            }
+                            break;
+                        case "SurveyWaypointParameter":
+                            {
+                                Log.Info("SurveyWaypointParameter");
+                                experiment = "";
+                                param.TryGetValue("experiment", ref experiment);
+                                if (experiment != "")
+                                {
+                                    var ckt = new CEP_Key_Tuple(experiment, contractGuid);
+                                    Log.Info("ckt: " + ckt.Key() + ", expID: " + ckt.expID + ", contractGuid: " + ckt.contractGuid);
+                                    repository.AddExperimentToContract(contractGuid, ckt.Key(), new Experiment(3, ckt));
+
+                                    parameter = new Param(param_name, 1, param_name);
+                                    parameter.subjectId = param_name;
+                                    validContract = true;
+                                    experiment = "";
+                                }
+                            }
+                            break;
                         case "HasAntenna":
-                            Log.Info("HasAntenna found");
-                           
+                            {
+                                Log.Info("HasAntenna found");
+                                ProcessHasAntenna(param, contractGuid, ref validContract);
+                            }
                             break;
                         case "VesselParameterGroup":
                             {
@@ -814,14 +871,14 @@ namespace WhatDoINeed
                                     string name = p1.GetValue("name");
                                     if (name == "HasAntenna")
                                     {
-                                        Log.Info("HasAntenna found");
+                                        ProcessHasAntenna(p1, contractGuid, ref validContract);
                                         break;
                                     }
                                 }
                             }
                             break;
 
-                        case "CollectScienceCustom": // BlueDog Bureau
+                        case "CollectScienceCustom": // Field Research contract pack
                             validContract = true;
                             var exps = param.GetValuesList("experiment");
                             Log.Info("CollectScienceCustom, numExps: " + exps.Count);
@@ -829,8 +886,29 @@ namespace WhatDoINeed
                             {
                                 var ckt = new CEP_Key_Tuple(exps[i], contractGuid);
                                 Log.Info("ckt: " + ckt);
-                                repository.AddExperimentToContract(contractGuid, ckt.Key(), new Experiment(1, ckt));
+                                repository.AddExperimentToContract(contractGuid, ckt.Key(), new Experiment(4, ckt));
 
+                            }
+                            if (exps.Count == 0)
+                            {
+                                var subParam = param.GetNodes("PARAM");
+                                foreach (var p in subParam)
+                                {
+                                    var id = p.GetValue("id");
+                                    if (id.Length > 7)
+                                    {
+                                        var id1 = id.Substring(0, id.Length - 7);   // id can be the experimentName concated with "Subject"
+                                        ScienceExperiment se = ResearchAndDevelopment.GetExperiment(id1);
+                                        if (se != null)
+                                        {
+                                            var ckt = new CEP_Key_Tuple(id1, contractGuid);
+                                            Log.Info("ckt for CollectScienceCustom.PARAM: " + ckt);
+                                            repository.AddExperimentToContract(contractGuid, ckt.Key(), new Experiment(41, ckt));
+                                        }
+                                        else
+                                            Log.Error("Collect ScienceCustom.Param, id: " + id + ", Science exp not found");
+                                    }
+                                }
                             }
                             experiment = "";
 
@@ -1178,8 +1256,8 @@ namespace WhatDoINeed
 
         void ScanContracts()
         {
-            //Log.Info("ScanContracts");
             var aContracts = contractParser.getActiveContracts;
+            Log.Info("ScanContracts, numActiveContracts: " + aContracts.Count);
 
             int cnt = 0;
             for (int i = 0; i < aContracts.Count; i++)
@@ -1194,12 +1272,15 @@ namespace WhatDoINeed
                     if (!Settings.Instance.activeContracts.ContainsKey(contract.ID))
                     {
                         Settings.Instance.activeContracts[contract.ID] = false;
-                        //Log.Info("Contract Added: " + contract.ID);
+                        Log.Info("Contract Added: " + contract.ID + ", title: " + contract.Title);
+                        Log.Info("Contract Notes: " + contract.Notes);
+                        Log.Info("Contract Briefing: " + contract.Briefing);
+                        Log.Info("Contract ParameterCount: " + contract.ParameterCount);
                     }
 
                     repository.AddContract(new ContractWrapper(contract, contract.ID, contractType, contractType));
                     if (Settings.Instance.activeContracts.ContainsKey(contract.ID) &&
-                   Settings.Instance.activeContracts[contract.ID])
+                        Settings.Instance.activeContracts[contract.ID])
                         cnt++;
                 }
             }

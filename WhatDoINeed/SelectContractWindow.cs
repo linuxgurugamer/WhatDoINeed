@@ -101,7 +101,7 @@ namespace WhatDoINeed
         void SelectContractWindowDisplay(int id)
         {
             float contentHeight = 0;
-
+            Log.Info("SelectContractWindowDisplay, numContracts: " + Repository.Contracts.Count);
             WhatDoINeed.Instance.SetButtonAlpha();
 
             GUIStyle toggleStyle = new GUIStyle(GUI.skin.toggle);

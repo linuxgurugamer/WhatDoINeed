@@ -186,7 +186,7 @@ namespace WhatDoINeed
                     {
                         Guid contractGuid = new Guid(guid);
                         activeContracts[contractGuid] = true;
-                        //Log.Info("settings, activeContracts, contractGuid: " + contractGuid);
+                        //RegisterToolbar.Log.Info("settings.LoadData, activeContracts, contractGuid: " + contractGuid);
                     }
                 }
 

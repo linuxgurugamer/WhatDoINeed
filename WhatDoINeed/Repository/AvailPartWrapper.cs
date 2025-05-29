@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 using static WhatDoINeed.Utility;
 
 namespace WhatDoINeed
@@ -20,7 +16,7 @@ namespace WhatDoINeed
         internal int numAvailable;
         internal SCANsatSCANtype scanType;
         internal bool scanSatPart = false;
-
+        internal AntennaType antennaType;
         public string LogExperiments()
         {
             string s = "";
@@ -50,6 +46,20 @@ namespace WhatDoINeed
                 scanSatPart = true;
             }
         }
+        public AvailPartWrapper(AvailablePart part, string antennaType)
+        {
+            NameID = part.name;
+            this.part = part;
+            this.partTitle = GetPartTitle(part.name);
+            numAvailable = 0;
+            switch (antennaType)
+            {
+                case "RELAY": this.antennaType = AntennaType.RELAY; break;
+                case "DIRECT": this.antennaType = AntennaType.DIRECT; break;
+                default: return;
+            }
+        }
+        
 
         /// <summary>
         /// Returns part title

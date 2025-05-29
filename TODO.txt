@@ -1,8 +1,6 @@
 TODO
 
 
-Not identifying when a param HasAntenna is there (needs an antenna)
-Can be inside a VesselParameterGroup
 
 Bugs
 
@@ -36,8 +34,7 @@ Test following mods:
 	Orbital Survey Plus  https://forum.kerbalspaceprogram.com/topic/109207-112x-orbital-survey-plus-v236/page/9/
 	Sci Rev ???
 	StationScience (probably not working)
-	Impact
+	Impact				Only working up to 1.9.1, checking with author
 	NehemiahEngineeringOrbitalScience
-	Tarsier Space Technology (verify it's working)
 	Research Bodies
 	Space Dust

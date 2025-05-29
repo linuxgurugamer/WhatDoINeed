@@ -172,3 +172,10 @@
 
 0.0.4.4
 	Added code to deal with the CollectScienceCustom parameter, which is used to gather the same science in multiple locations in a single contract
+
+0.0.4.5 
+	Added code to deal with the HasAntenna parameter
+	Added support for the SurveyWaypointParameter
+	Added support for Tarsier mod
+	Fixed display of certain Scansat experiments
+	Improved code working with CollectScienceCustom (was missing some experiments)

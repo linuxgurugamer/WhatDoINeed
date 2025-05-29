@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
+using static WhatDoINeed.RegisterToolbar;
 
 namespace WhatDoINeed
 {
@@ -114,7 +116,7 @@ namespace WhatDoINeed
             if (Contracts.ContainsKey(contract.Id))
                 throw new Exception("A contract with the same ID already exists.");
             Contracts[contract.Id] = contract;
-            //RegisterToolbar.Log.Info("AddContract, contract ID: " + contract.Id);
+            RegisterToolbar.Log.Info("AddContract, contract ID: " + contract.Id);
         }
 
 #if false
@@ -178,13 +180,23 @@ namespace WhatDoINeed
         /// <param name="groupKey"></param>
         /// <param name="parts"></param>
         /// <exception cref="Exception"></exception>
-        public void AddNeededPartsToContract(Guid contractId, string groupKey, IEnumerable<AvailPartWrapper> parts)
+        public void AddNeededPartsToContract(Guid contractId, string groupKey, string groupName, IEnumerable<AvailPartWrapper> parts)
         {
+            RegisterToolbar.Log.Info("AddNeededPartsToContract, groupName: " + groupName);
             if (!Contracts.TryGetValue(contractId, out var contract))
                 throw new Exception("Contract not found.");
             if (contract.NeededParts.ContainsKey(groupKey))
                 throw new Exception($"A needed part group with the key '{groupKey}' already exists in the contract.");
             contract.NeededParts[groupKey] = parts.ToList();
+            AddPartGroupToContract(contractId, groupKey, groupName);
+//                    public void AddPartGroupToContract(Guid contractId, string partGroupKey)
+
+#if DEBUG
+            foreach (var p in contract.NeededParts[groupKey])
+            {
+                RegisterToolbar.Log.Info("AddNeededPartsToContract, part: " + p.partTitle);
+            }
+#endif
         }
 
         /// <summary>
@@ -257,8 +269,9 @@ namespace WhatDoINeed
         /// <summary>
         /// Adds a group of parts (by its key) to a contract.
         /// </summary>
-        public void AddPartGroupToContract(Guid contractId, string partGroupKey)
+        public void AddPartGroupToContract(Guid contractId, string partGroupKey, string partGroupName)
         {
+            RegisterToolbar.Log.Info("AddPartGroupToContract, partGroupName: " + partGroupName);
             if (!Contracts.TryGetValue(contractId, out var contract))
                 throw new Exception("Contract not found.");
             if (!contract.NeededParts.ContainsKey(partGroupKey))
@@ -267,7 +280,7 @@ namespace WhatDoINeed
                 throw new Exception("This part group has already been added to the contract.");
 
             // Create and add a new PartGroupWrapper
-            contract.PartGroups[partGroupKey] = new PartGroupWrapper(partGroupKey);
+            contract.PartGroups[partGroupKey] = new PartGroupWrapper(partGroupKey, partGroupName);
         }
 
         /// <summary>

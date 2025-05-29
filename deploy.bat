@@ -13,7 +13,7 @@ set H1=R:\KSP_1.12.5-CenturianMaximus
 set H2=R:\KSP_1.12.5_Career-MissionController-JNSQ
 set H3=R:\KSP_1.12.5_Candy-Career
 
-set H3=R:\KSP_1.12.5-WhatDoINeed
+set H4=R:\KSP_1.12.5-WhatDoINeed
 
 
 set GAMEDIR=WhatDoINeed
@@ -28,9 +28,15 @@ copy /Y changelog.cfg %GAMEDATA%\%GAMEDIR%
 
 copy /Y %VERSIONFILE% %GAMEDATA%\%GAMEDIR%
 
+echo %H%
 xcopy /y /s /I %GAMEDATA%\%GAMEDIR% "%H%\GameData\%GAMEDIR%"
+echo %H1%
 xcopy /y /s /I %GAMEDATA%\%GAMEDIR% "%H1%\GameData\%GAMEDIR%"
+echo %H2%
 xcopy /y /s /I %GAMEDATA%\%GAMEDIR% "%H2%\GameData\%GAMEDIR%"
+echo %H3%
 xcopy /y /s /I %GAMEDATA%\%GAMEDIR% "%H3%\GameData\%GAMEDIR%"
+echo %H4%
+xcopy /y /s /I %GAMEDATA%\%GAMEDIR% "%H4%\GameData\%GAMEDIR%"
 
 rem pause
