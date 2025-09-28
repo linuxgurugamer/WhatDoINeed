@@ -179,3 +179,6 @@
 	Added support for Tarsier mod
 	Fixed display of certain Scansat experiments
 	Improved code working with CollectScienceCustom (was missing some experiments)
+
+0.0.4.6
+	Updated changelog.cfg to remove the -rc* suffixes
