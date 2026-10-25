@@ -78,9 +78,11 @@ namespace WhatDoINeed
             lastAlpha = -1;
             Settings.Instance.LoadData();
 
-            Repository.Contracts.Clear();
-            ScanContracts();
-            SetUpExperimentParts();
+            // ContractParser reloads its contract lists a few frames after each scene
+            // change, so they can still be empty here
+            contractParser.onContractsParsed.Add(RefreshContracts);
+            if (contractParser.Loaded)
+                RefreshContracts();
             if (scansatAvailable)
                 SetupSCANsatStrings();
             InitializePartsAvailability();
@@ -187,6 +189,14 @@ namespace WhatDoINeed
             GameEvents.onEditorShipModified.Remove(onEditorShipModified);
 
             GameEvents.onGameSceneLoadRequested.Remove(onGameSceneLoadRequested);
+            contractParser.onContractsParsed.Remove(RefreshContracts);
+        }
+
+        void RefreshContracts()
+        {
+            Repository.Contracts.Clear();
+            ScanContracts();
+            SetUpExperimentParts();
         }
 
 
@@ -536,7 +546,10 @@ namespace WhatDoINeed
                                 var aContracts = contractParser.getActiveContracts;
                                 contractContainer c = aContracts.FirstOrDefault(b => b.ID == contractGuid);
                                 if (c == null)
+                                {
                                     Log.Error("Unable to find contract in contractParser: " + contractGuid);
+                                    continue;
+                                }
 
                                 var contractTypeTmp = c.Root.GetType().ToString().Split('.');
                                 string contractType = contractTypeTmp[contractTypeTmp.Length - 1];
