@@ -636,22 +636,23 @@ namespace WhatDoINeed
 
         public List<string> moduleTypes = new List<string> { "Antenna", "Generator", "Dock", "Grapple", "Wheel", "Laboratory", "Harvester", "Greenhouse" };
 
+        static bool moduleTitlesInitialized = false;
+
         // need to merge the one below with SetUpExperimentParts
         void InitializeModuleTitles()
         {
 
             Log.Info("InitializeModuleTitles 1");
-            if (!Repository.moduleInformation.ContainsKey("Antenna"))
+            if (!moduleTitlesInitialized)
             {
-                Repository.moduleInformation.Add("Antenna", new ModuleInformation("Antenna"));
-                Repository.moduleInformation.Add("Generator", new ModuleInformation("Generator"));
-                Repository.moduleInformation.Add("Dock", new ModuleInformation("Dock"));
-                Repository.moduleInformation.Add("Grapple", new ModuleInformation("Grapple"));
-                Repository.moduleInformation.Add("Wheel", new ModuleInformation("Wheel"));
+                moduleTitlesInitialized = true;
 
-                Repository.moduleInformation.Add("Laboratory", new ModuleInformation("Laboratory"));
-                Repository.moduleInformation.Add("Harvester", new ModuleInformation("Harvester"));
-                Repository.moduleInformation.Add("Greenhouse", new ModuleInformation("Greenhouse"));
+                // LoadPartInfo may already have added some of these, since Kerbalism has
+                // part modules named Laboratory, Harvester, and Greenhouse (and Antenna, in
+                // older versions)
+                foreach (var moduleType in moduleTypes)
+                    if (!Repository.moduleInformation.ContainsKey(moduleType))
+                        Repository.moduleInformation.Add(moduleType, new ModuleInformation(moduleType));
 
                 if (PartLoader.LoadedPartsList == null)
                     Log.Error("PartLoader.LoadedPartsList is null");
