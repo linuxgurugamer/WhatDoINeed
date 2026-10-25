@@ -105,6 +105,8 @@ namespace WhatDoINeed
         {
             if (!Repository.partInfoList.ContainsKey(part.name))
             {
+                if (Repository.excludedParts.Contains(part.name))
+                    return;
                 //Log.Error("********************** vvvvvvvvvvvvvvvv *******************");
                 Log.Error("SetPartOnShip, part not found: " + part.name);
                 //foreach (var p in Repository.partInfoList)
@@ -270,7 +272,10 @@ namespace WhatDoINeed
                         // Needs to be done before any changes done to the repository
                         modules = PartLoader.LoadedPartsList[i].partConfig.GetNodes();
                         if (CheckForModuleLaunchClamp(modules))
+                        {
+                            Repository.excludedParts.Add(PartLoader.LoadedPartsList[i].name);
                             continue;
+                        }
                         Repository.partInfoList.Add(PartLoader.LoadedPartsList[i].name, new PartInformation(PartLoader.LoadedPartsList[i].name, i));
                     }
                     ScanPartForContractObjective(PartLoader.LoadedPartsList[i], modules);
@@ -377,6 +382,8 @@ namespace WhatDoINeed
                         }
                     }
                 }
+                else
+                    Repository.excludedParts.Add(PartLoader.LoadedPartsList[i].name);
             }
         }
 

@@ -75,6 +75,8 @@ namespace WhatDoINeed
         public ShipPartModules shipInfo { get; set; } = new ShipPartModules();
         public static Dictionary<string, ExperimentParts> allExperimentParts = new Dictionary<string, ExperimentParts>();
         public static Dictionary<string, PartInformation> partInfoList = new Dictionary<string, PartInformation>();
+        // Names of loaded parts deliberately left out of partInfoList (flags, kerbals, launch clamps)
+        public static HashSet<string> excludedParts = new HashSet<string>();
         public static Dictionary<string, ModuleInformation> moduleInformation = new Dictionary<string, ModuleInformation>();
         public static int[] engineTypes = new int[Enum.GetNames(typeof(EngineType)).Length];
         public static Dictionary<string, PartCategoryWrapper> partCategories = new Dictionary<string, PartCategoryWrapper>();
